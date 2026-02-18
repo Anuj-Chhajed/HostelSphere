@@ -22,7 +22,7 @@ erDiagram
 
     STUDENTS {
         uuid id PK
-        uuid user_id FK UK
+        uuid user_id FK "UNIQUE"
         varchar enrollment_number UK
         varchar department
         int year
@@ -32,7 +32,7 @@ erDiagram
 
     WARDENS {
         uuid id PK
-        uuid user_id FK UK
+        uuid user_id FK "UNIQUE"
         uuid assigned_block_id FK
         int assigned_floor
         timestamp created_at
