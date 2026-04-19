@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../contexts/AuthContext';
 
-import { AlertCircle, BedDouble, Plus, Clock, CheckCircle, CreditCard, Utensils, Calendar } from 'lucide-react';
+import { AlertCircle, BedDouble, Plus, Clock, CheckCircle, CreditCard, Utensils, Calendar, Lock, Trash2 } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
   const [allocation, setAllocation] = useState<any>(null);
@@ -89,10 +89,19 @@ export const StudentDashboard: React.FC = () => {
 
   const handlePayment = async (id: string) => {
     try {
-      await api.post(`/payments/${id}/pay`, { method: 'CREDIT_CARD' });
+      await api.post(`/payments/${id}/pay`, { method: 'CARD' });
       fetchDashboardData();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Error processing payment');
+    }
+  };
+
+  const handleOccupyRoom = async (allocationId: string) => {
+    try {
+      await api.post(`/allocations/${allocationId}/occupy`);
+      fetchDashboardData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error marking room as occupied');
     }
   };
 
@@ -126,6 +135,19 @@ export const StudentDashboard: React.FC = () => {
       alert(e.response?.data?.message || 'Error taking back complaint');
     }
   };
+
+  const handleDeleteComplaint = async (id: string) => {
+    if (!confirm('Delete this resolved complaint from your history?')) return;
+    try {
+      await api.delete(`/complaints/${id}`);
+      fetchDashboardData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error deleting complaint');
+    }
+  };
+
+  // Derived state: does the student have an active room?
+  const hasActiveRoom = allocation && (allocation.status === 'APPROVED' || allocation.status === 'OCCUPIED');
 
   if (loading) return <div className="animate-pulse">Loading modules...</div>;
 
@@ -173,14 +195,49 @@ export const StudentDashboard: React.FC = () => {
               </span>
             </div>
             {allocation.status === 'APPROVED' && (
-              <div className="bg-success/10 text-success p-4 rounded-xl text-sm">
-                Your application has been approved! Report to the warden.
+              <div className="bg-success/10 border border-success/30 text-success p-4 rounded-xl text-sm flex flex-col gap-3">
+                <p>Your application has been approved! Report to the warden and confirm your move-in below.</p>
+                <button 
+                  onClick={() => handleOccupyRoom(allocation.id)}
+                  className="btn-primary py-2 self-start text-xs font-semibold"
+                >
+                  Confirm Move-In
+                </button>
               </div>
             )}
-            <div className="flex justify-between items-center pb-4 border-b border-white/10">
-               <span className="text-textSecondary">Preferred Type</span>
-               <span className="font-medium">{allocation.preferredType}</span>
-            </div>
+            
+            {/* Room Details — only show when a room has been assigned */}
+            {allocation.room ? (
+              <div className="bg-bgTertiary rounded-xl p-5 border border-white/5 space-y-3">
+                <h4 className="text-sm font-semibold text-white mb-3">Assigned Room Details</h4>
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-textSecondary">Building</span>
+                   <span className="font-medium text-accentPrimary">{allocation.room.block?.name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-textSecondary">Room Number</span>
+                   <span className="font-medium">{allocation.room.roomNumber}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-textSecondary">Floor</span>
+                   <span className="font-medium">{allocation.room.floor}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-textSecondary">Room Type</span>
+                   <span className="font-medium">{allocation.room.type}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-textSecondary">Capacity</span>
+                   <span className="font-medium">{allocation.room.currentOccupancy} / {allocation.room.capacity}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                 <span className="text-textSecondary">Preferred Type</span>
+                 <span className="font-medium">{allocation.preferredType}</span>
+              </div>
+            )}
+            
             {allocation.status === 'REQUESTED' && (
               <div className="text-right pt-2">
                  <button onClick={() => handleWithdrawAllocation(allocation.id)} className="text-xs text-error font-medium hover:underline transition-all">Withdraw Application</button>
@@ -196,7 +253,7 @@ export const StudentDashboard: React.FC = () => {
           <h2 className="text-xl font-display font-semibold flex items-center gap-2">
             <AlertCircle className="text-error" size={24} /> My Complaints
           </h2>
-          {!showComplaintForm && (
+          {!showComplaintForm && hasActiveRoom && (
             <button onClick={() => setShowComplaintForm(true)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm border border-white/10 transition-colors">
                 Raise Issue
             </button>
@@ -229,6 +286,11 @@ export const StudentDashboard: React.FC = () => {
                     <button type="button" onClick={() => setShowComplaintForm(false)} className="btn-secondary py-2 px-4 text-sm">Cancel</button>
                 </div>
             </form>
+        ) : !hasActiveRoom ? (
+            <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+                <Lock size={24} className="mx-auto mb-3 text-textTertiary" />
+                <p className="text-sm">Get a room assigned first before raising complaints.</p>
+            </div>
         ) : (
             <>
                 {complaints.length === 0 ? (
@@ -243,15 +305,18 @@ export const StudentDashboard: React.FC = () => {
                         <h4 className="font-medium text-textPrimary">{comp.title}</h4>
                         <p className="text-xs text-textSecondary capitalize">{comp.category.toLowerCase()}</p>
                         
-                        {/* Details pane (Always visible but small) */}
+                        {/* Details pane */}
                         <p className="text-xs text-textTertiary mt-2 max-w-[200px] italic">"{comp.description}"</p>
                         
                         {comp.status === 'OPEN' && (
                             <button onClick={() => handleWithdrawComplaint(comp.id)} className="block mt-3 text-[10px] text-error hover:text-error hover:underline transition-all font-medium">Take Back / Withdraw</button>
                         )}
+                        {(comp.status === 'RESOLVED' || comp.status === 'CLOSED') && (
+                            <button onClick={() => handleDeleteComplaint(comp.id)} className="block mt-3 text-[10px] text-textSecondary hover:text-error hover:underline transition-all font-medium flex items-center gap-1"><Trash2 size={10} /> Remove from history</button>
+                        )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                        {comp.status === 'RESOLVED' ? <CheckCircle size={16} className="text-success" /> : <Clock size={16} className="text-warning" />}
+                        {comp.status === 'RESOLVED' || comp.status === 'CLOSED' ? <CheckCircle size={16} className="text-success" /> : <Clock size={16} className="text-warning" />}
                         <span className="text-[10px] text-textTertiary">{new Date(comp.createdAt).toLocaleDateString()}</span>
                         <span className="text-[10px] text-white/50 mt-1 uppercase font-semibold">{comp.status.replace('_', ' ')}</span>
                         </div>
@@ -284,7 +349,7 @@ export const StudentDashboard: React.FC = () => {
           <h2 className="text-xl font-display font-semibold flex items-center gap-2">
              <Utensils className="text-accentPrimary" size={24} /> Mess Subscription
           </h2>
-          {!showMessForm && !myMess && (
+          {!showMessForm && !myMess && hasActiveRoom && (
             <button onClick={() => setShowMessForm(true)} className="btn-secondary py-1.5 px-4 text-sm flex items-center gap-1">
               <Plus size={16} /> Opt-In
             </button>
@@ -327,6 +392,11 @@ export const StudentDashboard: React.FC = () => {
              </span>
              <p className="text-xs text-textSecondary mt-4">Ends: {myMess.endDate ? new Date(myMess.endDate).toLocaleDateString() : 'Until Vacated'}</p>
            </div>
+        ) : !hasActiveRoom ? (
+            <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+              <Lock size={24} className="mx-auto mb-3 text-textTertiary" />
+              <p className="text-sm">Get a room assigned first before subscribing to a mess plan.</p>
+            </div>
         ) : (
            <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
              No active mess plan. Opt-in above.
@@ -341,7 +411,12 @@ export const StudentDashboard: React.FC = () => {
               <Calendar className="text-accentPrimary" size={24} /> Attendance
            </h2>
          </div>
-         {attendance.length === 0 ? (
+         {!hasActiveRoom ? (
+             <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+               <Lock size={24} className="mx-auto mb-3 text-textTertiary" />
+               <p className="text-sm">Get a room assigned first to see your attendance records.</p>
+             </div>
+         ) : attendance.length === 0 ? (
            <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
              No attendance records found yet.
            </div>
@@ -369,7 +444,12 @@ export const StudentDashboard: React.FC = () => {
           </h2>
         </div>
         
-        {payments.length === 0 ? (
+        {!hasActiveRoom ? (
+             <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+               <Lock size={24} className="mx-auto mb-3 text-textTertiary" />
+               <p className="text-sm">Get a room assigned first to see your finances and bills.</p>
+             </div>
+        ) : payments.length === 0 ? (
           <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
             No bills generated yet. Everything is paid!
           </div>
