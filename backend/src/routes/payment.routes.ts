@@ -17,6 +17,6 @@ router.post('/generate', authorizeRoles(UserRole.ACCOUNTANT, UserRole.ADMIN), pa
 router.post('/penalties', authorizeRoles(UserRole.ACCOUNTANT, UserRole.ADMIN), paymentController.applyLatePenalties);
 
 // Admin Endpoint: view all payments
-router.get('/all', authorizeRoles(UserRole.ACCOUNTANT, UserRole.ADMIN), paymentController.getMyPayments); // Wait, getMyPayments uses req.user.userId! I need a getAllPayments. For demo, we'll just not use /all or mock it in AccountantDashboard.
+router.get('/all', authorizeRoles(UserRole.ACCOUNTANT, UserRole.ADMIN), paymentController.getAllPayments);
 
 export default router;

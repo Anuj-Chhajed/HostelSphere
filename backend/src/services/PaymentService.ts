@@ -150,4 +150,13 @@ export class PaymentService {
       orderBy: { createdAt: 'desc' }
     });
   }
+
+  public async getAllPayments(): Promise<any[]> {
+    return this.prisma.payment.findMany({
+      include: {
+        student: { include: { user: { select: { name: true, email: true } } } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
 }

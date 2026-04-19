@@ -68,4 +68,13 @@ export class PaymentController {
       next(error);
     }
   };
+
+  public getAllPayments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const data = await this.paymentService.getAllPayments();
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
