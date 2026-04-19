@@ -42,6 +42,15 @@ export class RoomService {
   }
 
   public async getAllRooms(): Promise<any[]> {
-      return this.prisma.room.findMany();
+      return this.prisma.room.findMany({
+        include: {
+          block: true,
+          roomAllocations: {
+            where: { status: { in: ['APPROVED', 'OCCUPIED'] } },
+            include: { student: { include: { user: { select: { name: true, email: true } } } } }
+          }
+        },
+        orderBy: [{ blockId: 'asc' }, { floor: 'asc' }, { roomNumber: 'asc' }]
+      });
   }
 }
