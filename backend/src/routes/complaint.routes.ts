@@ -3,11 +3,13 @@ import { ComplaintController } from '../controllers/ComplaintController';
 import { authenticateToken } from '../middleware/authMiddleware';
 const { requireRoles } = require('../middleware/roleMiddleware');
 import { UserRole } from '../interfaces/enums';
+import { auditMiddleware } from '../middleware/auditMiddleware';
 
 const router = Router();
 const complaintController = new ComplaintController();
 
 router.use(authenticateToken);
+router.use(auditMiddleware('COMPLAINT'));
 
 // Students
 router.post('/', requireRoles([UserRole.STUDENT]), complaintController.raiseComplaint);
