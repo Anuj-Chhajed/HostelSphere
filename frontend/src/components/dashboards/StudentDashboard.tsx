@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../contexts/AuthContext';
 
-import { AlertCircle, BedDouble, Plus, Clock, CheckCircle } from 'lucide-react';
+import { AlertCircle, BedDouble, Plus, Clock, CheckCircle, CreditCard } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
   const [allocation, setAllocation] = useState<any>(null);
   const [complaints, setComplaints] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form states
@@ -17,9 +18,10 @@ export const StudentDashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [allocRes, compRes] = await Promise.all([
+      const [allocRes, compRes, payRes] = await Promise.all([
         api.get('/allocations/me').catch(() => ({ data: { data: [] } })),
-        api.get('/complaints/me').catch(() => ({ data: { data: [] } }))
+        api.get('/complaints/me').catch(() => ({ data: { data: [] } })),
+        api.get('/payments/me').catch(() => ({ data: { data: [] } }))
       ]);
       
       const allocList = allocRes.data.data || [];
@@ -31,6 +33,7 @@ export const StudentDashboard: React.FC = () => {
       }
 
       setComplaints(compRes.data.data || []);
+      setPayments(payRes.data.data || []);
     } catch (error) {
       console.error("Error fetching dashboard data", error);
     } finally {
@@ -65,6 +68,15 @@ export const StudentDashboard: React.FC = () => {
       fetchDashboardData();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Error raising complaint');
+    }
+  };
+
+  const handlePayment = async (id: string) => {
+    try {
+      await api.post(`/payments/${id}/pay`, { method: 'CREDIT_CARD' });
+      fetchDashboardData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error processing payment');
     }
   };
 
@@ -192,6 +204,50 @@ export const StudentDashboard: React.FC = () => {
                 </div>
                 )}
             </>
+        )}
+      </div>
+      {/* Finances Widget */}
+      <div className="glass-panel p-8 lg:col-span-2">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+            <CreditCard className="text-success" size={24} /> My Finances
+          </h2>
+        </div>
+        
+        {payments.length === 0 ? (
+          <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+            No bills generated yet. Everything is paid!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {payments.map((pay: any) => (
+              <div key={pay.id} className="bg-bgTertiary rounded-xl p-5 border border-white/5 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-textPrimary">{pay.type.replace('_', ' ')}</h4>
+                  </div>
+                  <div className="text-3xl font-display font-bold text-accentPrimary mb-1">
+                    ${parseFloat(pay.amount).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-textSecondary mb-4">
+                    Generated: {new Date(pay.dueDate).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+                  <span className={`px-3 py-1 rounded text-xs font-semibold ${pay.status === 'PAID' ? 'bg-success/20 text-success' : pay.status === 'OVERDUE' ? 'bg-error/20 text-error' : 'bg-warning/20 text-warning'}`}>
+                    {pay.status}
+                  </span>
+                  
+                  {pay.status !== 'PAID' && (
+                    <button onClick={() => handlePayment(pay.id)} className="btn-secondary py-1.5 px-4 text-sm whitespace-nowrap">
+                      Pay Now
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

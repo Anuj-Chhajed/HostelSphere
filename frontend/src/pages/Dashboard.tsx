@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { StudentDashboard } from '../components/dashboards/StudentDashboard';
 import { WardenDashboard } from '../components/dashboards/WardenDashboard';
+import { AccountantDashboard } from '../components/dashboards/AccountantDashboard';
 import { LogOut, Home, User, Bell } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -61,7 +62,7 @@ const Dashboard: React.FC = () => {
             {user?.role === 'STUDENT' && <StudentDashboard />}
             {user?.role === 'WARDEN' && <WardenDashboard />}
             {user?.role === 'ADMIN' && <WardenDashboard />} {/* Admin shares Warden view for demo defaults */}
-            {user?.role === 'ACCOUNTANT' && <div className="glass-panel p-12 text-center text-textSecondary italic">Accountant dashboard module is pending.</div>}
+            {user?.role === 'ACCOUNTANT' && <AccountantDashboard />}
         </div>
       </main>
     </div>
