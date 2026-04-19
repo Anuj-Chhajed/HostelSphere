@@ -1,7 +1,7 @@
 // Singleton Pattern — Prisma Database Connection
 // Only ONE instance of PrismaClient is created and shared across the entire app
 
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import dotenv from 'dotenv';

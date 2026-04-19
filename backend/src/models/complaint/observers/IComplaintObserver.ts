@@ -1,4 +1,4 @@
-import { Complaint, ComplaintStatus } from '../../../generated/prisma';
+import { Complaint, ComplaintStatus } from '@prisma/client';
 
 export interface ComplaintEvent {
   complaint: Complaint;
