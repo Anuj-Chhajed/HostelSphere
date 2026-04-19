@@ -1,4 +1,4 @@
-import { Student, Payment } from '@prisma/client';
+import { Student, Payment } from '../../../generated/prisma';
 
 export interface FeeContext {
   student: Student & { roomAllocations?: any[], messSubscriptions?: any[] };
