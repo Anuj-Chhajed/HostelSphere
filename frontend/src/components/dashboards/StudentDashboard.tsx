@@ -127,7 +127,6 @@ export const StudentDashboard: React.FC = () => {
                        <select value={preferredType} onChange={(e) => setPreferredType(e.target.value)} className="input-field bg-bgTertiary text-sm">
                            <option value="SINGLE">Single Room</option>
                            <option value="DOUBLE">Double Room</option>
-                           <option value="TRIPLE">Triple Room</option>
                        </select>
                    </div>
                    <div className="flex gap-2">
@@ -188,8 +187,10 @@ export const StudentDashboard: React.FC = () => {
                    <label className="text-xs text-textSecondary mb-1 block">Category</label>
                    <select value={complaintData.category} onChange={e => setComplaintData({...complaintData, category: e.target.value})} className="input-field py-2 bg-bgTertiary text-sm">
                        <option value="MAINTENANCE">Maintenance</option>
-                       <option value="CLEANING">Cleaning</option>
+                       <option value="HYGIENE">Hygiene</option>
                        <option value="ELECTRICAL">Electrical</option>
+                       <option value="PLUMBING">Plumbing</option>
+                       <option value="NOISE">Noise</option>
                        <option value="OTHER">Other</option>
                    </select>
                 </div>
