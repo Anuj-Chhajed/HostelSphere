@@ -1,0 +1,122 @@
+import Database from '../config/db';
+import { AppError } from '../middleware/errorHandler';
+import { RoomAllocationContext } from '../models/room/RoomAllocationContext';
+import { AllocationStatus, RoomStatus } from '../interfaces/enums';
+import { RoomRequestDto } from '../validators/allocation/AllocationValidator';
+import { StudentEligibilityValidator } from '../validators/allocation/StudentEligibilityValidator';
+import { DuplicateAllocationValidator } from '../validators/allocation/DuplicateAllocationValidator';
+import { RoomAvailabilityValidator } from '../validators/allocation/RoomAvailabilityValidator';
+
+export class RoomAllocationService {
+  private prisma = Database.getInstance().getClient();
+
+  public async requestAllocation(request: RoomRequestDto): Promise<any> {
+    // 1. Setup the Validation Chain (Chain of Responsibility Pattern)
+    const eligibilityValidator = new StudentEligibilityValidator();
+    const duplicateValidator = new DuplicateAllocationValidator();
+    const availabilityValidator = new RoomAvailabilityValidator();
+
+    eligibilityValidator.setNext(duplicateValidator).setNext(availabilityValidator);
+
+    // 2. Run validations
+    const validationResult = await eligibilityValidator.validate(request);
+    if (!validationResult.isValid) {
+      throw new AppError(validationResult.message || 'Validation failed', 400);
+    }
+
+    // 3. Create the request in database (State: REQUESTED)
+    const newAllocation = await this.prisma.roomAllocation.create({
+      data: {
+        studentId: request.studentId,
+        preferredType: request.preferredType,
+        roomId: request.roomId || null,
+        status: AllocationStatus.REQUESTED
+      }
+    });
+
+    return newAllocation;
+  }
+
+  public async approveAllocation(allocationId: string, wardenId: string): Promise<any> {
+    const allocation = await this.prisma.roomAllocation.findUnique({
+      where: { id: allocationId }
+    });
+
+    if (!allocation) throw new AppError('Allocation not found', 404);
+
+    // 1. Initialize the Context for State Pattern
+    const context = new RoomAllocationContext(allocation);
+
+    // 2. Perform the state transition
+    // If it's already approved etc., this will throw an error from the current State
+    context.approve(wardenId);
+
+    // 3. Save the new state back to the DB
+    const updatedAllocation = await this.prisma.roomAllocation.update({
+      where: { id: allocationId },
+      data: {
+        status: context.getStatus(),
+        approvedBy: wardenId,
+        approvalDate: new Date()
+      }
+    });
+
+    return updatedAllocation;
+  }
+
+  public async occupyRoom(allocationId: string): Promise<any> {
+    const allocation = await this.prisma.roomAllocation.findUnique({
+      where: { id: allocationId }
+    });
+
+    if (!allocation) throw new AppError('Allocation not found', 404);
+
+    if (!allocation.roomId) {
+      throw new AppError('Cannot occupy a request without assigned room ID', 400);
+    }
+
+    // 1. Initialize State Context
+    const context = new RoomAllocationContext(allocation);
+
+    // 2. State transition
+    context.occupy();
+
+    // 3. Update DB in a transaction (Atomicity)
+    return await this.prisma.$transaction(async (tx) => {
+      // Update allocation state
+      const updatedAllocation = await tx.roomAllocation.update({
+        where: { id: allocationId },
+        data: {
+          status: context.getStatus(),
+          occupiedDate: new Date()
+        }
+      });
+
+      // Update Room occupancy
+      const room = await tx.room.findUnique({ where: { id: allocation.roomId! } });
+      if (room) {
+        const newOccupancy = room.currentOccupancy + 1;
+        await tx.room.update({
+          where: { id: room.id },
+          data: {
+            currentOccupancy: newOccupancy,
+            status: newOccupancy >= room.capacity ? RoomStatus.FULL : RoomStatus.OCCUPIED
+          }
+        });
+      }
+
+      return updatedAllocation;
+    });
+  }
+
+  public async getAllocations(): Promise<any[]> {
+    return this.prisma.roomAllocation.findMany({
+      include: {
+        student: {
+          include: { user: true }
+        },
+        room: true,
+      }
+    });
+  }
+}
