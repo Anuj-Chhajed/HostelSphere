@@ -38,8 +38,8 @@ export class PaymentController {
 
   public processPayment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { id } = req.params;
-      const { method } = req.body; // e.g. "UPI", "CARD"
+      const id = req.params.id as string;
+      const method = req.body.method as any; // Cast to avoid TS overload confusion
       
       const userId = req.user!.userId;
 
