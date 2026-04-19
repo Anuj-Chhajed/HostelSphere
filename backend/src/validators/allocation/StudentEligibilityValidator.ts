@@ -1,5 +1,5 @@
 import { AllocationValidator, RoomRequestDto, ValidationResult } from './AllocationValidator';
-import Database from '../../../config/db';
+import Database from '../../config/db';
 
 export class StudentEligibilityValidator extends AllocationValidator {
   private prisma = Database.getInstance().getClient();

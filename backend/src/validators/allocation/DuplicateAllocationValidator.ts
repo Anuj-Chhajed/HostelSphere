@@ -1,6 +1,6 @@
 import { AllocationValidator, RoomRequestDto, ValidationResult } from './AllocationValidator';
-import Database from '../../../config/db';
-import { AllocationStatus } from '../../../interfaces/enums';
+import Database from '../../config/db';
+import { AllocationStatus } from '../../interfaces/enums';
 
 export class DuplicateAllocationValidator extends AllocationValidator {
   private prisma = Database.getInstance().getClient();
