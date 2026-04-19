@@ -20,4 +20,7 @@ router.get('/all', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), complaintCon
 router.patch('/:id/assign', authorizeRoles(UserRole.WARDEN), complaintController.assignComplaint);
 router.patch('/:id/status', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), complaintController.updateStatus);
 
+// Delete route to withdraw complaint
+router.delete('/:id', authorizeRoles(UserRole.STUDENT), complaintController.withdrawComplaint);
+
 export default router;

@@ -135,11 +135,28 @@ export class ComplaintService {
     });
   }
 
+  public async withdrawComplaint(complaintId: string, studentUserId: string): Promise<void> {
+    const complaint = await this.prisma.complaint.findUnique({
+      where: { id: complaintId },
+      include: { student: true }
+    });
+
+    if (!complaint) throw new AppError('Complaint not found', 404);
+    if (complaint.student.userId !== studentUserId) throw new AppError('Unauthorized access', 403);
+    
+    // Only OPEN complaints can be withdrawn by the student
+    if (complaint.status !== 'OPEN') {
+      throw new AppError('Cannot withdraw a complaint that is already being processed', 400);
+    }
+
+    await this.prisma.complaint.delete({ where: { id: complaintId } });
+  }
+
   public async getAllComplaints(): Promise<any[]> {
     return this.prisma.complaint.findMany({
       include: {
         student: { select: { user: { select: { name: true, email: true } } } },
-        warden: { select: { user: { select: { name: true } } } }
+        assignee: { select: { user: { select: { name: true } } } }
       },
       orderBy: { createdAt: 'desc' }
     });

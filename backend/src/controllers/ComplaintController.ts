@@ -26,7 +26,7 @@ export class ComplaintController {
 
   public assignComplaint = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const wardenUserId = req.user!.userId;
 
       const complaint = await this.complaintService.assignComplaint(id, wardenUserId);
@@ -82,6 +82,17 @@ export class ComplaintController {
         success: true,
         data: complaints
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public withdrawComplaint = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const studentUserId = req.user!.userId;
+      await this.complaintService.withdrawComplaint(id, studentUserId);
+      res.status(200).json({ success: true, message: 'Complaint successfully withdrawn' });
     } catch (error) {
       next(error);
     }

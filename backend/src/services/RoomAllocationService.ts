@@ -109,11 +109,30 @@ export class RoomAllocationService {
     });
   }
 
+  public async withdrawAllocation(allocationId: string, studentUserId: string): Promise<void> {
+    const allocation = await this.prisma.roomAllocation.findUnique({
+      where: { id: allocationId },
+      include: { student: true }
+    });
+
+    if (!allocation) throw new AppError('Allocation not found', 404);
+    if (allocation.student.userId !== studentUserId) throw new AppError('Unauthorized access', 403);
+    
+    if (allocation.status !== AllocationStatus.REQUESTED) {
+      throw new AppError('Cannot withdraw an allocation that is already processed', 400);
+    }
+
+    await this.prisma.roomAllocation.delete({ where: { id: allocationId } });
+  }
+
   public async getAllocations(): Promise<any[]> {
     return this.prisma.roomAllocation.findMany({
       include: {
         student: {
-          include: { user: true }
+          include: { 
+            user: true,
+            attendanceRecords: true
+          }
         },
         room: true,
       }

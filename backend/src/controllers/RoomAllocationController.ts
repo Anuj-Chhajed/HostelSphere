@@ -79,6 +79,17 @@ export class RoomAllocationController {
     }
   };
 
+  public withdrawAllocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const studentUserId = req.user!.userId;
+      await this.allocationService.withdrawAllocation(id, studentUserId);
+      res.status(200).json({ success: true, message: 'Allocation successfully withdrawn' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public getAllocations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = await this.allocationService.getAllocations();

@@ -107,6 +107,26 @@ export const StudentDashboard: React.FC = () => {
     }
   };
 
+  const handleWithdrawAllocation = async (id: string) => {
+    if (!confirm('Are you sure you want to withdraw your room application?')) return;
+    try {
+      await api.delete(`/allocations/${id}`);
+      fetchDashboardData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error withdrawing application');
+    }
+  };
+
+  const handleWithdrawComplaint = async (id: string) => {
+    if (!confirm('Are you sure you want to take back this complaint?')) return;
+    try {
+      await api.delete(`/complaints/${id}`);
+      fetchDashboardData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error taking back complaint');
+    }
+  };
+
   if (loading) return <div className="animate-pulse">Loading modules...</div>;
 
   return (
@@ -157,10 +177,15 @@ export const StudentDashboard: React.FC = () => {
                 Your application has been approved! Report to the warden.
               </div>
             )}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center pb-4 border-b border-white/10">
                <span className="text-textSecondary">Preferred Type</span>
                <span className="font-medium">{allocation.preferredType}</span>
             </div>
+            {allocation.status === 'REQUESTED' && (
+              <div className="text-right pt-2">
+                 <button onClick={() => handleWithdrawAllocation(allocation.id)} className="text-xs text-error font-medium hover:underline transition-all">Withdraw Application</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -212,15 +237,23 @@ export const StudentDashboard: React.FC = () => {
                 </div>
                 ) : (
                 <div className="space-y-3">
-                    {complaints.slice(0, showAllComplaints ? undefined : 3).map((comp: any) => (
-                    <div key={comp.id} className="bg-white/5 rounded-xl p-4 border border-white/5 hover:bg-white/10 transition-colors flex justify-between items-center">
+                     {complaints.slice(0, showAllComplaints ? undefined : 3).map((comp: any) => (
+                    <div key={comp.id} className="bg-white/5 rounded-xl p-4 border border-white/5 hover:bg-white/10 transition-colors flex justify-between items-start">
                         <div>
                         <h4 className="font-medium text-textPrimary">{comp.title}</h4>
                         <p className="text-xs text-textSecondary capitalize">{comp.category.toLowerCase()}</p>
+                        
+                        {/* Details pane (Always visible but small) */}
+                        <p className="text-xs text-textTertiary mt-2 max-w-[200px] italic">"{comp.description}"</p>
+                        
+                        {comp.status === 'OPEN' && (
+                            <button onClick={() => handleWithdrawComplaint(comp.id)} className="block mt-3 text-[10px] text-error hover:text-error hover:underline transition-all font-medium">Take Back / Withdraw</button>
+                        )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                        {comp.status === 'PENDING' ? <Clock size={16} className="text-warning" /> : <CheckCircle size={16} className="text-success" />}
+                        {comp.status === 'RESOLVED' ? <CheckCircle size={16} className="text-success" /> : <Clock size={16} className="text-warning" />}
                         <span className="text-[10px] text-textTertiary">{new Date(comp.createdAt).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-white/50 mt-1 uppercase font-semibold">{comp.status.replace('_', ' ')}</span>
                         </div>
                     </div>
                     ))}

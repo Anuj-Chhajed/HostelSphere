@@ -30,10 +30,15 @@ export const WardenDashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleMarkAttendance = async (studentId: string, status: 'PRESENT' | 'ABSENT') => {
+  const handleMarkAttendance = async (studentUserId: string, status: 'PRESENT' | 'ABSENT') => {
     try {
-      await api.post('/attendance/mark', { studentId, status });
-      alert(`Marked ${status}`);
+      // Create local ISO string reflecting EXACTLY the user's timezone 'YYYY-MM-DD' effectively mapped to timezone start
+      const localDate = new Date();
+      const tzOffset = localDate.getTimezoneOffset() * 60000;
+      const localISO = (new Date(localDate.getTime() - tzOffset)).toISOString().slice(0, -1);
+      
+      await api.post('/attendance/mark', { studentUserId, status, date: localISO });
+      fetchData(); // Instantly refresh table to reflect Completed state
     } catch (e: any) {
       alert(e.response?.data?.message || 'Error marking attendance');
     }
@@ -105,7 +110,12 @@ export const WardenDashboard: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activeStudents.map((alloc) => (
+            {activeStudents.map((alloc) => {
+              // Check if they were already marked today
+              const todayStr = new Date().toLocaleDateString();
+              const todaysRecord = alloc.student.attendanceRecords?.find((a: any) => new Date(a.date).toLocaleDateString() === todayStr);
+
+              return (
               <div key={alloc.id} className="bg-bgTertiary border border-white/5 rounded-xl p-4 flex flex-col justify-between">
                 <div>
                   <h4 className="font-semibold text-textPrimary">{alloc.student.user.name}</h4>
@@ -115,22 +125,39 @@ export const WardenDashboard: React.FC = () => {
                   </p>
                 </div>
                 
-                <div className="mt-4 flex gap-2">
-                  <button 
-                    onClick={() => handleMarkAttendance(alloc.studentId, 'PRESENT')}
-                    className="flex-1 py-1.5 px-3 bg-success/20 hover:bg-success/30 text-success text-xs font-semibold rounded transition-colors"
-                  >
-                    Mark Present
-                  </button>
-                  <button 
-                     onClick={() => handleMarkAttendance(alloc.studentId, 'ABSENT')}
-                     className="flex-1 py-1.5 px-3 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded transition-colors"
-                  >
-                     Mark Absent
-                  </button>
-                </div>
+                {todaysRecord ? (
+                   <div className="mt-4 p-2 bg-white/5 rounded border border-white/5 text-center">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <CheckCircle2 size={16} className={todaysRecord.status === 'PRESENT' ? 'text-success' : 'text-error'} />
+                        <span className={`text-xs font-semibold ${todaysRecord.status === 'PRESENT' ? 'text-success' : 'text-error'}`}>
+                           Marked {todaysRecord.status}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => handleMarkAttendance(alloc.student.userId, todaysRecord.status === 'PRESENT' ? 'ABSENT' : 'PRESENT')}
+                        className="text-[10px] text-textSecondary hover:text-white hover:underline transition-all"
+                      >
+                         Undo / Switch to {todaysRecord.status === 'PRESENT' ? 'ABSENT' : 'PRESENT'}
+                      </button>
+                   </div>
+                ) : (
+                   <div className="mt-4 flex gap-2">
+                     <button 
+                       onClick={() => handleMarkAttendance(alloc.student.userId, 'PRESENT')}
+                       className="flex-1 py-1.5 px-3 bg-success/20 hover:bg-success/30 text-success text-xs font-semibold rounded transition-colors"
+                     >
+                       Mark Present
+                     </button>
+                     <button 
+                        onClick={() => handleMarkAttendance(alloc.student.userId, 'ABSENT')}
+                        className="flex-1 py-1.5 px-3 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded transition-colors"
+                     >
+                        Mark Absent
+                     </button>
+                   </div>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </section>
