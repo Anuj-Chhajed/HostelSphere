@@ -13,6 +13,7 @@ export const StudentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Form states
+  const [showAllComplaints, setShowAllComplaints] = useState(false);
   const [showRoomForm, setShowRoomForm] = useState(false);
   const [preferredType, setPreferredType] = useState('DOUBLE');
   
@@ -211,7 +212,7 @@ export const StudentDashboard: React.FC = () => {
                 </div>
                 ) : (
                 <div className="space-y-3">
-                    {complaints.slice(0, 3).map((comp: any) => (
+                    {complaints.slice(0, showAllComplaints ? undefined : 3).map((comp: any) => (
                     <div key={comp.id} className="bg-white/5 rounded-xl p-4 border border-white/5 hover:bg-white/10 transition-colors flex justify-between items-center">
                         <div>
                         <h4 className="font-medium text-textPrimary">{comp.title}</h4>
@@ -223,9 +224,20 @@ export const StudentDashboard: React.FC = () => {
                         </div>
                     </div>
                     ))}
-                    {complaints.length > 3 && (
-                    <div className="text-center text-xs text-textSecondary pt-2 font-medium cursor-pointer hover:text-white transition-colors">
+                    {complaints.length > 3 && !showAllComplaints && (
+                    <div 
+                        className="text-center text-xs text-textSecondary pt-2 font-medium cursor-pointer hover:text-white transition-colors"
+                        onClick={() => setShowAllComplaints(true)}
+                    >
                         View all {complaints.length} complaints
+                    </div>
+                    )}
+                    {showAllComplaints && complaints.length > 3 && (
+                    <div 
+                        className="text-center text-xs text-textSecondary pt-2 font-medium cursor-pointer hover:text-white transition-colors"
+                        onClick={() => setShowAllComplaints(false)}
+                    >
+                        Collapse complaints
                     </div>
                     )}
                 </div>

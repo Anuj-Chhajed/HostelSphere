@@ -4,10 +4,31 @@ import { StudentDashboard } from '../components/dashboards/StudentDashboard';
 import { WardenDashboard } from '../components/dashboards/WardenDashboard';
 import { AccountantDashboard } from '../components/dashboards/AccountantDashboard';
 import { AdminDashboard } from '../components/dashboards/AdminDashboard';
-import { LogOut, Home, User, Bell, LayoutDashboard, Database, Building } from 'lucide-react';
+import { LogOut, Home, User, Bell, LayoutDashboard, Database, Building, Mail, CheckCircle2 } from 'lucide-react';
+import { api } from '../contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  
+  const [showNotifications, setShowNotifications] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = React.useState(false);
+
+  // Fetch when opening dropdown
+  React.useEffect(() => {
+     if (showNotifications) {
+         setLoadingNotifications(true);
+         api.get('/notifications/me')
+            .then(res => setNotifications(res.data.data))
+            .catch(e => console.error(e))
+            .finally(() => setLoadingNotifications(false));
+     }
+  }, [showNotifications]);
+
+  const markAsRead = async (id: string) => {
+     await api.patch(`/notifications/${id}/read`).catch(() => {});
+     setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
 
   return (
     <div className="min-h-screen bg-bgPrimary flex flex-col lg:flex-row">
@@ -66,16 +87,49 @@ const Dashboard: React.FC = () => {
         {/* Glows */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accentPrimary/5 rounded-full mix-blend-screen filter blur-[120px] pointer-events-none" />
         
-        <header className="mb-10 relative z-10 flex justify-between items-end">
+        <header className="mb-10 relative z-50 flex justify-between items-end">
             <div>
                 <h1 className="text-3xl font-display font-semibold text-white tracking-tight">Welcome to the Matrix, {user?.name.split(' ')[0]}</h1>
                 <p className="text-textSecondary mt-2 text-lg font-light">Your central nervous system for operations.</p>
             </div>
             
-            <div className="hidden sm:flex h-12 w-12 rounded-xl bg-white/5 border border-white/10 items-center justify-center text-textSecondary hover:text-white hover:bg-white/10 hover:scale-105 cursor-pointer transition-all shadow-sm relative group">
-               <Bell size={20} className="group-hover:animate-swing" />
-               <div className="absolute top-3 right-3 w-2 h-2 bg-error rounded-full animate-pulse blur-[1px]"></div>
-               <div className="absolute top-3 right-3 w-2 h-2 bg-error rounded-full"></div>
+            <div className="relative">
+                <div onClick={() => setShowNotifications(!showNotifications)} className={`hidden sm:flex h-12 w-12 rounded-xl border border-white/10 items-center justify-center text-textSecondary hover:text-white hover:bg-white/10 hover:scale-105 cursor-pointer transition-all shadow-sm relative group ${showNotifications ? 'bg-white/10 text-white' : 'bg-white/5'}`}>
+                <Bell size={20} className={notifications.some(n => !n.isRead) ? "animate-swing text-white" : ""} />
+                
+                {/* Red dot if unread exists, default pulse for demo if empty */}
+                <div className={`absolute top-3 right-3 w-2 h-2 ${notifications.some(n => !n.isRead) ? 'bg-error' : 'bg-white/20'} rounded-full animate-pulse blur-[1px]`}></div>
+                <div className={`absolute top-3 right-3 w-2 h-2 ${notifications.some(n => !n.isRead) ? 'bg-error' : 'bg-white/20'} rounded-full`}></div>
+                </div>
+
+                {/* Dropdown Panel */}
+                {showNotifications && (
+                    <div className="absolute right-0 top-14 w-80 bg-bgSecondary border border-white/10 shadow-2xl rounded-2xl p-4 z-50 animate-fade-in-up">
+                       <h3 className="text-white font-semibold flex items-center gap-2 mb-4">
+                           <Mail size={16} className="text-accentPrimary" /> System Updates
+                       </h3>
+                       {loadingNotifications ? (
+                           <div className="text-center text-textSecondary py-4 animate-pulse text-sm">Intercepting feed...</div>
+                       ) : notifications.length === 0 ? (
+                           <div className="text-center text-textSecondary py-6 bg-white/5 rounded-xl border border-white/5 border-dashed text-sm">
+                               Inbox is clear.
+                           </div>
+                       ) : (
+                           <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                               {notifications.map(n => (
+                                   <div key={n.id} className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${n.isRead ? 'bg-white/5 border-white/5 opacity-70' : 'bg-white/10 border-white/20 border-l-2 border-l-accentPrimary hover:bg-white/15'}`} onClick={() => markAsRead(n.id)}>
+                                       <div className="flex justify-between items-start mb-1">
+                                           <h4 className={`text-sm ${n.isRead ? 'text-textSecondary' : 'text-white font-medium'}`}>{n.title}</h4>
+                                           <span className="text-[10px] text-textTertiary">{new Date(n.createdAt).toLocaleDateString()}</span>
+                                       </div>
+                                       <p className="text-xs text-textSecondary line-clamp-2">{n.message}</p>
+                                       {!n.isRead && <div className="mt-2 text-[10px] text-accentPrimary font-medium flex justify-end">Click to mark read</div>}
+                                   </div>
+                               ))}
+                           </div>
+                       )}
+                    </div>
+                )}
             </div>
         </header>
 
