@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../contexts/AuthContext';
-import { CheckCircle2, Clock, Inbox, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, Inbox, AlertTriangle, XCircle } from 'lucide-react';
 
 export const WardenDashboard: React.FC = () => {
   const [allocations, setAllocations] = useState<any[]>([]);
@@ -18,7 +18,7 @@ export const WardenDashboard: React.FC = () => {
       
       setAllocations(allAlloc.filter((a: any) => a.status === 'REQUESTED'));
       setActiveStudents(allAlloc.filter((a: any) => a.status === 'OCCUPIED' || a.status === 'APPROVED'));
-      setComplaints(compRes.data.data.filter((c: any) => c.status === 'OPEN' || c.status === 'PENDING'));
+      setComplaints(compRes.data.data.filter((c: any) => c.status === 'OPEN' || c.status === 'ASSIGNED' || c.status === 'IN_PROGRESS'));
     } catch (e) {
       console.error(e);
     } finally {
@@ -32,12 +32,10 @@ export const WardenDashboard: React.FC = () => {
 
   const handleMarkAttendance = async (studentUserId: string, status: 'PRESENT' | 'ABSENT') => {
     try {
-      // Create local ISO string reflecting EXACTLY the user's timezone 'YYYY-MM-DD' effectively mapped to timezone start
-      const localDate = new Date();
-      const tzOffset = localDate.getTimezoneOffset() * 60000;
-      const localISO = (new Date(localDate.getTime() - tzOffset)).toISOString().slice(0, -1);
+      // Send strict local YYYY-MM-DD string to avoid UTC offset backwards trailing
+      const targetDate = new Date().toLocaleDateString('en-CA');
       
-      await api.post('/attendance/mark', { studentUserId, status, date: localISO });
+      await api.post('/attendance/mark', { studentUserId, status, date: targetDate });
       fetchData(); // Instantly refresh table to reflect Completed state
     } catch (e: any) {
       alert(e.response?.data?.message || 'Error marking attendance');
@@ -50,6 +48,16 @@ export const WardenDashboard: React.FC = () => {
       fetchData();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Error approving allocation');
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!confirm('Are you sure you want to reject this room request?')) return;
+    try {
+      await api.post(`/allocations/${id}/status`, { status: 'REJECTED' });
+      fetchData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error rejecting allocation');
     }
   };
 
@@ -84,7 +92,13 @@ export const WardenDashboard: React.FC = () => {
                     <p className="text-sm text-textSecondary mt-1">Requested <span className="font-medium text-white">{alloc.preferredType}</span> Room</p>
                     <p className="text-xs text-textTertiary mt-2 italic">"{alloc.remarks}"</p>
                  </div>
-                 <div className="mt-6 flex justify-end">
+                 <div className="mt-6 flex justify-end gap-2">
+                    <button 
+                      onClick={() => handleReject(alloc.id)}
+                      className="flex items-center gap-2 bg-error/20 text-error hover:bg-error hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                    >
+                      <XCircle size={16} /> Reject
+                    </button>
                     <button 
                       onClick={() => handleApprove(alloc.id)}
                       className="flex items-center gap-2 bg-success/20 text-success hover:bg-success hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
@@ -112,8 +126,8 @@ export const WardenDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeStudents.map((alloc) => {
               // Check if they were already marked today
-              const todayStr = new Date().toLocaleDateString();
-              const todaysRecord = alloc.student.attendanceRecords?.find((a: any) => new Date(a.date).toLocaleDateString() === todayStr);
+              const todayStr = new Date().toLocaleDateString('en-CA');
+              const todaysRecord = alloc.student.attendanceRecords?.find((a: any) => new Date(a.date).toLocaleDateString('en-CA') === todayStr);
 
               return (
               <div key={alloc.id} className="bg-bgTertiary border border-white/5 rounded-xl p-4 flex flex-col justify-between">
