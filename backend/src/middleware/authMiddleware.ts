@@ -35,3 +35,12 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     next(new AppError('Token is invalid or expired', 403));
   }
 };
+
+export const authorizeRoles = (...roles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return next(new AppError('You do not have permission to perform this action', 403));
+    }
+    next();
+  };
+};

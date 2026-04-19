@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../contexts/AuthContext';
-import { ApplicationStatus, RoomType, ComplaintStatus } from '../../../../backend/src/interfaces/enums'; // Import types if available, otherwise just use strings
+
 import { AlertCircle, BedDouble, Plus, Clock, CheckCircle } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {

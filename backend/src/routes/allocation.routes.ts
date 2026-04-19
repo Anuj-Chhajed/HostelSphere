@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import { RoomAllocationController } from '../controllers/RoomAllocationController';
-import { authenticateToken, requireRoles } from '../middleware/authMiddleware';
+import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware';
 import { UserRole } from '../interfaces/enums';
-// import { requireRoles } from '../middleware/roleMiddleware';
-const { requireRoles: rolesMiddleware } = require('../middleware/roleMiddleware');
 
 const router = Router();
 const allocationController = new RoomAllocationController();
@@ -12,13 +10,15 @@ const allocationController = new RoomAllocationController();
 router.use(authenticateToken);
 
 // Student routes
-router.post('/request', rolesMiddleware([UserRole.STUDENT]), allocationController.requestAllocation);
+router.post('/request', authorizeRoles(UserRole.STUDENT), allocationController.requestAllocation);
+// Get own allocations (needed by frontend)
+router.get('/me', authorizeRoles(UserRole.STUDENT), allocationController.getAllocations);
 
 // Warden/Admin routes
-router.get('/', rolesMiddleware([UserRole.WARDEN, UserRole.ADMIN]), allocationController.getAllocations);
-router.post('/:id/approve', rolesMiddleware([UserRole.WARDEN, UserRole.ADMIN]), allocationController.approveAllocation);
+router.get('/all', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), allocationController.getAllocations);
+router.post('/:id/status', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), allocationController.approveAllocation);
 
 // Typically students confirm they occupied it, or a warden confirms it
-router.post('/:id/occupy', rolesMiddleware([UserRole.STUDENT, UserRole.WARDEN]), allocationController.occupyRoom);
+router.post('/:id/occupy', authorizeRoles(UserRole.STUDENT, UserRole.WARDEN), allocationController.occupyRoom);
 
 export default router;

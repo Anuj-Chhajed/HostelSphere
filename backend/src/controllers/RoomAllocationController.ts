@@ -52,7 +52,7 @@ export class RoomAllocationController {
       
       if (!warden) throw new AppError('Only wardens can approve allocations', 403);
 
-      const result = await this.allocationService.approveAllocation(id, warden.id);
+      const result = await this.allocationService.approveAllocation(id as string, warden.id);
 
       res.status(200).json({
         success: true,
@@ -67,7 +67,7 @@ export class RoomAllocationController {
   public occupyRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
-      const result = await this.allocationService.occupyRoom(id);
+      const result = await this.allocationService.occupyRoom(id as string);
 
       res.status(200).json({
         success: true,
