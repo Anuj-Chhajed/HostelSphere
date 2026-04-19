@@ -24,7 +24,7 @@ export const auditMiddleware = (entityType: string) => {
       const details = {
         method: req.method,
         path: req.path,
-        body: Object.keys(req.body).length > 0 ? 'HIDDEN_FOR_SECURITY' : null, 
+        body: (req.body && Object.keys(req.body).length > 0) ? 'HIDDEN_FOR_SECURITY' : null, 
       };
 
       const ip = req.ip || req.connection.remoteAddress || null;
