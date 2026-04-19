@@ -89,7 +89,7 @@ export class ComplaintController {
 
   public withdrawComplaint = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const studentUserId = req.user!.userId;
       await this.complaintService.withdrawComplaint(id, studentUserId);
       res.status(200).json({ success: true, message: 'Complaint successfully withdrawn' });
