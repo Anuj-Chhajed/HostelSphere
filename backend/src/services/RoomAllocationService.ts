@@ -37,7 +37,7 @@ export class RoomAllocationService {
     return newAllocation;
   }
 
-  public async approveAllocation(allocationId: string, wardenId: string): Promise<any> {
+  public async approveAllocation(allocationId: string, wardenId: string, roomId?: string): Promise<any> {
     const allocation = await this.prisma.roomAllocation.findUnique({
       where: { id: allocationId }
     });
@@ -48,16 +48,64 @@ export class RoomAllocationService {
     const context = new RoomAllocationContext(allocation);
 
     // 2. Perform the state transition
-    // If it's already approved etc., this will throw an error from the current State
     context.approve(wardenId);
 
-    // 3. Save the new state back to the DB
+    // 3. Determine which room to assign
+    let assignedRoomId = roomId || allocation.roomId;
+
+    // If no room specified, auto-find one that matches the student's preferred type
+    if (!assignedRoomId && allocation.preferredType) {
+      // Fetch rooms with capacity, then pick one that has space
+      const candidateRooms = await this.prisma.room.findMany({
+        where: {
+          type: allocation.preferredType,
+          status: { in: [RoomStatus.AVAILABLE, RoomStatus.OCCUPIED] }
+        },
+        orderBy: { currentOccupancy: 'asc' }
+      });
+
+      const availableRoom = candidateRooms.find(r => r.currentOccupancy < r.capacity);
+
+      if (!availableRoom) throw new AppError(`No available ${allocation.preferredType} rooms to assign`, 400);
+      assignedRoomId = availableRoom.id;
+    }
+
+    if (!assignedRoomId) throw new AppError('No room could be determined for this allocation', 400);
+
+    // 4. Save the new state + room assignment back to the DB
+    const updatedAllocation = await this.prisma.roomAllocation.update({
+      where: { id: allocationId },
+      data: {
+        status: context.getStatus(),
+        roomId: assignedRoomId,
+        approvedBy: wardenId,
+        approvalDate: new Date()
+      },
+      include: {
+        room: { include: { block: true } },
+        student: { include: { user: true } }
+      }
+    });
+
+    return updatedAllocation;
+  }
+
+  public async rejectAllocation(allocationId: string, wardenId: string, reason: string): Promise<any> {
+    const allocation = await this.prisma.roomAllocation.findUnique({
+      where: { id: allocationId }
+    });
+
+    if (!allocation) throw new AppError('Allocation not found', 404);
+
+    const context = new RoomAllocationContext(allocation);
+    context.reject(reason);
+
     const updatedAllocation = await this.prisma.roomAllocation.update({
       where: { id: allocationId },
       data: {
         status: context.getStatus(),
         approvedBy: wardenId,
-        approvalDate: new Date()
+        remarks: reason
       }
     });
 
@@ -125,6 +173,24 @@ export class RoomAllocationService {
     await this.prisma.roomAllocation.delete({ where: { id: allocationId } });
   }
 
+  public async getMyAllocations(studentUserId: string): Promise<any[]> {
+    const student = await this.prisma.student.findUnique({ where: { userId: studentUserId }});
+    if (!student) return [];
+
+    return this.prisma.roomAllocation.findMany({
+      where: { studentId: student.id },
+      include: {
+        student: {
+          include: { 
+            user: true,
+            attendanceRecords: true
+          }
+        },
+        room: { include: { block: true } },
+      }
+    });
+  }
+
   public async getAllocations(): Promise<any[]> {
     return this.prisma.roomAllocation.findMany({
       include: {
@@ -134,7 +200,7 @@ export class RoomAllocationService {
             attendanceRecords: true
           }
         },
-        room: true,
+        room: { include: { block: true } },
       }
     });
   }

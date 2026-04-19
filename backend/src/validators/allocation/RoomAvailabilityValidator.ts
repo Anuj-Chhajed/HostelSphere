@@ -1,6 +1,6 @@
 import { AllocationValidator, RoomRequestDto, ValidationResult } from './AllocationValidator';
-import Database from '../../../config/db';
-import { RoomStatus } from '../../../interfaces/enums';
+import Database from '../../config/db';
+import { RoomStatus } from '../../interfaces/enums';
 
 export class RoomAvailabilityValidator extends AllocationValidator {
   private prisma = Database.getInstance().getClient();
@@ -26,17 +26,16 @@ export class RoomAvailabilityValidator extends AllocationValidator {
     } 
     // Otherwise, if just a type is requested, check if we have ANY available rooms of that type
     else if (request.preferredType) {
-      const availableRoomCount = await this.prisma.room.count({
+      const candidateRooms = await this.prisma.room.findMany({
         where: {
           type: request.preferredType,
           status: {
-            in: [RoomStatus.AVAILABLE, RoomStatus.OCCUPIED] // Can be occupied if not full (e.g. double room with 1 person)
-          },
-          currentOccupancy: {
-            lt: this.prisma.room.fields.capacity
+            in: [RoomStatus.AVAILABLE, RoomStatus.OCCUPIED]
           }
         }
       });
+
+      const availableRoomCount = candidateRooms.filter(r => r.currentOccupancy < r.capacity).length;
 
       if (availableRoomCount === 0) {
         return { isValid: false, message: `No available rooms of type ${request.preferredType}.` };

@@ -1,4 +1,4 @@
-import { RoomType } from '../../../interfaces/enums';
+import { RoomType } from '../../interfaces/enums';
 
 // The DTO data required for validation
 export interface RoomRequestDto {
