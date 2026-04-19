@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/UserController';
-import { authenticateToken } from '../middleware/authMiddleware';
-import { requireRoles } from '../middleware/roleMiddleware';
+import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware';
 import { UserRole } from '../interfaces/enums';
 
 const router = Router();
@@ -20,6 +19,6 @@ router.patch('/me', userController.updateMe);
 router.get('/dashboard', userController.getDashboard);
 
 // Admin only routes
-router.get('/', requireRoles([UserRole.ADMIN]), userController.getAllUsers);
+router.get('/', authorizeRoles(UserRole.ADMIN), userController.getAllUsers);
 
 export default router;

@@ -15,7 +15,7 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/allocations', allocationRoutes);
-router.use('/infrastructure', roomRoutes);
+router.use('/rooms', roomRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/complaints', complaintRoutes);
 router.use('/attendance', attendanceRoutes);
