@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../contexts/AuthContext';
 
-import { AlertCircle, BedDouble, Plus, Clock, CheckCircle, CreditCard } from 'lucide-react';
+import { AlertCircle, BedDouble, Plus, Clock, CheckCircle, CreditCard, Utensils, Calendar } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
   const [allocation, setAllocation] = useState<any>(null);
   const [complaints, setComplaints] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [messPlans, setMessPlans] = useState<any[]>([]);
+  const [myMess, setMyMess] = useState<any>(null);
+  const [attendance, setAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form states
@@ -16,16 +19,21 @@ export const StudentDashboard: React.FC = () => {
   const [showComplaintForm, setShowComplaintForm] = useState(false);
   const [complaintData, setComplaintData] = useState({ title: '', description: '', category: 'MAINTENANCE' });
 
+  const [showMessForm, setShowMessForm] = useState(false);
+  const [selectedMessPlan, setSelectedMessPlan] = useState('');
+
   const fetchDashboardData = async () => {
     try {
-      const [allocRes, compRes, payRes] = await Promise.all([
+      const [allocRes, compRes, payRes, plansRes, myMessRes, attRes] = await Promise.all([
         api.get('/allocations/me').catch(() => ({ data: { data: [] } })),
         api.get('/complaints/me').catch(() => ({ data: { data: [] } })),
-        api.get('/payments/me').catch(() => ({ data: { data: [] } }))
+        api.get('/payments/me').catch(() => ({ data: { data: [] } })),
+        api.get('/mess/plans').catch(() => ({ data: { data: [] } })),
+        api.get('/mess/subscriptions/me').catch(() => ({ data: { data: null } })),
+        api.get('/attendance/me').catch(() => ({ data: { data: [] } }))
       ]);
       
       const allocList = allocRes.data.data || [];
-      // Pick the first allocation if it exists (usually a student just has 1)
       if (Array.isArray(allocList) && allocList.length > 0) {
         setAllocation(allocList[0]);
       } else {
@@ -34,6 +42,13 @@ export const StudentDashboard: React.FC = () => {
 
       setComplaints(compRes.data.data || []);
       setPayments(payRes.data.data || []);
+      
+      const parsedPlans = plansRes.data.data || [];
+      setMessPlans(parsedPlans);
+      if (parsedPlans.length > 0) setSelectedMessPlan(parsedPlans[0].id);
+
+      setMyMess(myMessRes.data.data);
+      setAttendance(attRes.data.data || []);
     } catch (error) {
       console.error("Error fetching dashboard data", error);
     } finally {
@@ -77,6 +92,17 @@ export const StudentDashboard: React.FC = () => {
       fetchDashboardData();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Error processing payment');
+    }
+  };
+
+  const handleSubscribeMess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/mess/subscriptions', { planId: selectedMessPlan });
+      setShowMessForm(false);
+      fetchDashboardData();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Error subscribing to mess plan');
     }
   };
 
@@ -206,6 +232,89 @@ export const StudentDashboard: React.FC = () => {
             </>
         )}
       </div>
+      {/* Mess Subscription Widget */}
+      <div className="glass-panel p-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+             <Utensils className="text-accentPrimary" size={24} /> Mess Subscription
+          </h2>
+          {!showMessForm && !myMess && (
+            <button onClick={() => setShowMessForm(true)} className="btn-secondary py-1.5 px-4 text-sm flex items-center gap-1">
+              <Plus size={16} /> Opt-In
+            </button>
+          )}
+        </div>
+
+        {showMessForm ? (
+          <form onSubmit={handleSubscribeMess} className="bg-white/5 rounded-xl border border-white/10 p-5 space-y-4">
+            <h3 className="font-semibold text-white">Select a Meal Plan</h3>
+            <div>
+              <label className="block text-sm text-textSecondary mb-1">Plan Configuration</label>
+              <select 
+                 className="w-full bg-bgTertiary border border-white/10 rounded-lg p-3 text-white focus:ring-1 focus:ring-accentPrimary transition-all outline-none"
+                 value={selectedMessPlan}
+                 onChange={(e) => setSelectedMessPlan(e.target.value)}
+                 required
+              >
+                 {messPlans.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} - ${parseFloat(p.pricePerMonth).toFixed(2)}/mo</option>
+                 ))}
+              </select>
+            </div>
+            
+            <div className="flex gap-3 justify-end pt-2">
+              <button type="button" onClick={() => setShowMessForm(false)} className="px-4 py-2 text-sm text-textSecondary hover:text-white transition-colors">
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary py-2 px-6 text-sm">
+                Confirm Subscription
+              </button>
+            </div>
+          </form>
+        ) : myMess ? (
+           <div className="bg-bgTertiary rounded-xl border border-white/5 p-6 relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-bl-full pointer-events-none" />
+             <p className="text-sm text-textSecondary mb-1">Active Plan</p>
+             <h4 className="text-xl font-semibold text-white mb-2">{myMess.plan.name}</h4>
+             <span className="inline-flex items-center gap-1 bg-success/20 text-success px-3 py-1 rounded-full text-xs font-semibold">
+                <CheckCircle size={14} /> ENROLLED & ACTIVE
+             </span>
+             <p className="text-xs text-textSecondary mt-4">Ends: {myMess.endDate ? new Date(myMess.endDate).toLocaleDateString() : 'Until Vacated'}</p>
+           </div>
+        ) : (
+           <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+             No active mess plan. Opt-in above.
+           </div>
+        )}
+      </div>
+
+      {/* Attendance Tracker Widget */}
+      <div className="glass-panel p-8">
+         <div className="flex justify-between items-center mb-6">
+           <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+              <Calendar className="text-accentPrimary" size={24} /> Attendance
+           </h2>
+         </div>
+         {attendance.length === 0 ? (
+           <div className="text-center py-8 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
+             No attendance records found yet.
+           </div>
+         ) : (
+           <div className="space-y-3">
+             {attendance.slice(0, 4).map((att) => (
+                <div key={att.id} className="bg-bgTertiary px-4 py-3 rounded-lg border border-white/5 flex justify-between items-center">
+                   <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${att.status === 'PRESENT' ? 'bg-success' : 'bg-error'}`} />
+                      <span className="font-medium text-sm">{new Date(att.date).toLocaleDateString()}</span>
+                   </div>
+                   <span className="text-xs text-textSecondary">{att.status}</span>
+                </div>
+             ))}
+             {attendance.length > 4 && <div className="text-center text-xs text-textTertiary pt-2">View full log in portal</div>}
+           </div>
+         )}
+      </div>
+
       {/* Finances Widget */}
       <div className="glass-panel p-8 lg:col-span-2">
         <div className="flex justify-between items-center mb-6">
