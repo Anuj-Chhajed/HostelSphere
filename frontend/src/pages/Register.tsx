@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
-import { UserPlus, User, Mail, Lock, Phone, AlertCircle } from 'lucide-react';
+import { UserPlus, User, Mail, Lock, Phone, AlertCircle, Loader2 } from 'lucide-react';
 
 const Register: React.FC = () => {
-  // Using standard Student registration as a default flow
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,8 +26,14 @@ const Register: React.FC = () => {
     setIsSubmitting(true);
     setError('');
 
+    // INTERCEPT: Auto-generate Enrollment Number under the hood to improve Tester UX!
+    const submissionData = { ...formData };
+    if (submissionData.role === 'STUDENT') {
+      submissionData.enrollmentNumber = 'STU-' + Math.floor(10000 + Math.random() * 90000);
+    }
+
     try {
-      await api.post('/auth/register', formData);
+      await api.post('/auth/register', submissionData);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
@@ -40,92 +45,94 @@ const Register: React.FC = () => {
 
   if (success) {
     return (
-      <div className="auth-container">
-        <div className="auth-background" />
-        <div className="auth-card glass-panel flex-center" style={{ flexDirection: 'column', textAlign: 'center', padding: '60px 40px' }}>
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', padding: '20px', borderRadius: '50%', marginBottom: '24px' }}>
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
+        <div className="bg-glow-purple" />
+        <div className="bg-glow-emerald" />
+        <div className="glass-panel text-center p-12 max-w-sm w-full animate-slideUpFade relative z-10 flex flex-col items-center">
+            <div className="bg-success/10 text-success p-6 rounded-full mb-6">
                 <UserPlus size={48} />
             </div>
-            <h2>Account Created!</h2>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>Routing you to the login screen...</p>
+            <h2 className="text-2xl font-display font-semibold mb-2">Account Created!</h2>
+            <p className="text-textSecondary">Routing you to the login screen...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-background" />
+    <div className="min-h-screen relative overflow-y-auto py-12 flex items-center justify-center">
+      {/* Decorative Glows */}
+      <div className="bg-glow-purple" />
+      <div className="bg-glow-emerald" />
 
-      <div className="auth-card glass-panel">
-        <div className="auth-header">
-          <h1>Join SmartHostel</h1>
-          <p>Create a new account to enter the system.</p>
+      <div className="glass-panel p-8 sm:p-10 max-w-xl w-full mx-4 relative z-10 animate-slideUpFade">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-display font-semibold mb-2">Join SmartHostel</h1>
+          <p className="text-textSecondary">Initialize your account to enter the ecosystem.</p>
         </div>
 
         {error && (
-          <div style={{ color: 'var(--error)', background: 'rgba(239, 68, 68, 0.1)', padding: '12px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <AlertCircle size={18} />
-            <span style={{ fontSize: '0.875rem' }}>{error}</span>
+          <div className="bg-error/10 text-error px-4 py-3 rounded-lg mb-6 flex items-center gap-2 text-sm border border-error/20">
+            <AlertCircle size={18} className="shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleRegister}>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group">
-                <label>Full Name</label>
-                <div className="floating-label-input" style={{ position: 'relative' }}>
-                  <User size={18} style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-tertiary)' }} />
-                  <input name="name" type="text" placeholder="John Doe" value={formData.name} onChange={handleChange} style={{ paddingLeft: '44px' }} required />
+        <form onSubmit={handleRegister} className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-textSecondary">Full Name</label>
+                <div className="relative">
+                  <User size={18} className="absolute top-3.5 left-4 text-textTertiary" />
+                  <input name="name" type="text" placeholder="John Doe" value={formData.name} onChange={handleChange} className="input-field pl-11" required />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Phone</label>
-                <div className="floating-label-input" style={{ position: 'relative' }}>
-                  <Phone size={18} style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-tertiary)' }} />
-                  <input name="phone" type="text" placeholder="9876543210" value={formData.phone} onChange={handleChange} style={{ paddingLeft: '44px' }} />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-textSecondary">Phone <span className="opacity-60 font-normal">(Optional)</span></label>
+                <div className="relative">
+                  <Phone size={18} className="absolute top-3.5 left-4 text-textTertiary" />
+                  <input name="phone" type="text" placeholder="9876543210" value={formData.phone} onChange={handleChange} className="input-field pl-11" />
                 </div>
               </div>
           </div>
 
-          <div className="form-group">
-            <label>Email Address</label>
-            <div className="floating-label-input" style={{ position: 'relative' }}>
-              <Mail size={18} style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-tertiary)' }} />
-              <input name="email" type="email" placeholder="student@university.edu" value={formData.email} onChange={handleChange} style={{ paddingLeft: '44px' }} required />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-textSecondary">Email Address</label>
+            <div className="relative">
+              <Mail size={18} className="absolute top-3.5 left-4 text-textTertiary" />
+              <input name="email" type="email" placeholder="student@university.edu" value={formData.email} onChange={handleChange} className="input-field pl-11" required />
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Password</label>
-            <div className="floating-label-input" style={{ position: 'relative' }}>
-              <Lock size={18} style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-tertiary)' }} />
-              <input name="password" type="password" placeholder="Create a password" value={formData.password} onChange={handleChange} style={{ paddingLeft: '44px' }} required />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-textSecondary">Password</label>
+                <div className="relative">
+                  <Lock size={18} className="absolute top-3.5 left-4 text-textTertiary" />
+                  <input name="password" type="password" placeholder="Create a password" value={formData.password} onChange={handleChange} className="input-field pl-11" required />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-textSecondary">Role</label>
+                <select name="role" value={formData.role} onChange={handleChange} className="input-field bg-bgSecondary/50 font-medium">
+                    <option value="STUDENT">Student</option>
+                    <option value="WARDEN">Warden</option>
+                    <option value="ACCOUNTANT">Accountant</option>
+                </select>
+              </div>
           </div>
 
-          <div className="form-group">
-            <label>Role</label>
-            <select name="role" value={formData.role} onChange={handleChange}>
-                <option value="STUDENT">Student</option>
-                <option value="WARDEN">Warden</option>
-                <option value="ACCOUNTANT">Accountant</option>
-            </select>
-          </div>
-
-          <button type="submit" className="btn-primary w-full" disabled={isSubmitting} style={{ marginTop: '24px' }}>
-            {isSubmitting ? 'Creating...' : (
-              <>
-                Create Account <UserPlus size={18} />
-              </>
+          <button type="submit" className="btn-primary w-full mt-8 h-12" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (
+              <>Create Account <UserPlus size={18} /></>
             )}
           </button>
         </form>
 
-        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          Already have an account? <Link to="/login" style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>Sign In</Link>
+        <div className="mt-8 text-center text-sm text-textSecondary">
+          Already have an account? <Link to="/login" className="text-accentPrimary font-medium hover:text-accentHover transition-colors ml-1">Sign In</Link>
         </div>
       </div>
     </div>

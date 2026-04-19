@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -8,14 +9,14 @@ import Register from './pages/Register';
 const DashboardPlaceholder = () => {
   const { user, logout } = useAuth();
   return (
-    <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
-        <h1 style={{ marginBottom: '16px' }}>Welcome, {user?.name}</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>You are logged in securely as a <strong>{user?.role}</strong>.</p>
+    <div className="p-10 max-w-4xl mx-auto min-h-screen text-textPrimary">
+        <h1 className="text-3xl font-display font-semibold mb-4">Welcome, {user?.name}</h1>
+        <p className="text-textSecondary mb-8 text-lg">You are logged in securely as a <span className="font-semibold text-accentPrimary">{user?.role}</span>.</p>
         
-        <div className="glass-panel" style={{ padding: '24px' }}>
-            <h3>Dashboard Module Pending...</h3>
-            <p style={{ marginTop: '12px', color: 'var(--text-tertiary)' }}>This area will house all your widgets (Allocations, Complaints, Payments) in Phase 8.2.</p>
-            <button className="btn-secondary" style={{ marginTop: '24px' }} onClick={logout}>Sign Out</button>
+        <div className="glass-panel p-8 animate-slideUpFade">
+            <h3 className="text-xl font-display font-semibold">Dashboard Module Pending...</h3>
+            <p className="mt-3 text-textSecondary leading-relaxed">This area will house all your dynamic widgets (Allocations, Complaints, Payments) using Tailwind layouts in Phase 8.2.</p>
+            <button className="btn-secondary mt-8" onClick={logout}>Sign Out</button>
         </div>
     </div>
   );
@@ -37,6 +38,7 @@ const App: React.FC = () => {
       <Router>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
@@ -48,7 +50,7 @@ const App: React.FC = () => {
           } />
 
           {/* Default Route */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
