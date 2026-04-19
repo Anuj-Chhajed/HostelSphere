@@ -12,11 +12,11 @@ router.use(authenticateToken);
 // Student routes
 router.post('/request', authorizeRoles(UserRole.STUDENT), allocationController.requestAllocation);
 // Get own allocations (needed by frontend)
-router.get('/me', authorizeRoles(UserRole.STUDENT), allocationController.getAllocations);
+router.get('/me', authorizeRoles(UserRole.STUDENT), allocationController.getMyAllocations);
 
 // Warden/Admin routes
 router.get('/all', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), allocationController.getAllocations);
-router.post('/:id/status', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), allocationController.approveAllocation);
+router.post('/:id/status', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), allocationController.updateAllocationStatus);
 
 // Typically students confirm they occupied it, or a warden confirms it
 router.post('/:id/occupy', authorizeRoles(UserRole.STUDENT, UserRole.WARDEN), allocationController.occupyRoom);

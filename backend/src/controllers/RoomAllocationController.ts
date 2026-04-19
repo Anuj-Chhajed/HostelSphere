@@ -39,24 +39,32 @@ export class RoomAllocationController {
     }
   };
 
-  public approveAllocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public updateAllocationStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
-      
+      const { status, remarks } = req.body;
       const userId = req.user?.userId;
+      
       if (!userId) throw new AppError('Not authenticated', 401);
 
       // Verify warden
       const prisma = require('../config/db').default.getInstance().getClient();
       const warden = await prisma.warden.findUnique({ where: { userId: userId }});
       
-      if (!warden) throw new AppError('Only wardens can approve allocations', 403);
+      if (!warden) throw new AppError('Only wardens can approve or reject allocations', 403);
 
-      const result = await this.allocationService.approveAllocation(id as string, warden.id);
+      let result;
+      if (status === 'APPROVED') {
+        result = await this.allocationService.approveAllocation(id as string, warden.id);
+      } else if (status === 'REJECTED') {
+        result = await this.allocationService.rejectAllocation(id as string, warden.id, remarks || 'Rejected by Warden');
+      } else {
+        throw new AppError('Invalid status. Only APPROVED or REJECTED allowed via this endpoint', 400);
+      }
 
       res.status(200).json({
         success: true,
-        message: 'Allocation approved successfully',
+        message: `Allocation ${status.toLowerCase()} successfully`,
         data: result
       });
     } catch (error) {
@@ -81,10 +89,20 @@ export class RoomAllocationController {
 
   public withdrawAllocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const studentUserId = req.user!.userId;
       await this.allocationService.withdrawAllocation(id, studentUserId);
       res.status(200).json({ success: true, message: 'Allocation successfully withdrawn' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getMyAllocations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const studentUserId = req.user!.userId;
+      const data = await this.allocationService.getMyAllocations(studentUserId);
+      res.status(200).json({ success: true, data });
     } catch (error) {
       next(error);
     }
