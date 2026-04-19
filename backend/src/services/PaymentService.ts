@@ -5,7 +5,7 @@ import { IFeeCalculationStrategy, FeeContext } from '../models/payment/strategie
 import { RegularFeeStrategy } from '../models/payment/strategies/RegularFeeStrategy';
 import { MessBasedFeeStrategy } from '../models/payment/strategies/MessBasedFeeStrategy';
 import { LatePenaltyFeeStrategy } from '../models/payment/strategies/LatePenaltyFeeStrategy';
-import { generateReceiptNumber } from '../utils/helpers';
+import { Helpers } from '../utils/helpers';
 
 export class PaymentService {
   private prisma = Database.getInstance().getClient();
@@ -98,7 +98,7 @@ export class PaymentService {
       const context: FeeContext = { student: payment.student as any, payment, daysLate };
       const penaltyAmount = await strategy.calculateFee(context);
 
-      if (penaltyAmount > payment.penaltyAmount) {
+      if (penaltyAmount > Number(payment.penaltyAmount)) {
         const newTotal = Number(payment.amount) + penaltyAmount;
         
         await this.prisma.payment.update({
@@ -128,7 +128,7 @@ export class PaymentService {
     if (payment.studentId !== student.id) throw new AppError('Unauthorized to pay this bill', 403);
     if (payment.status === PaymentStatus.PAID) throw new AppError('Payment already processed', 400);
 
-    const receiptNumber = generateReceiptNumber();
+    const receiptNumber = Helpers.generateReceiptNumber();
 
     return this.prisma.payment.update({
       where: { id: paymentId },
