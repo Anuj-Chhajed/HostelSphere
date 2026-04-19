@@ -1,0 +1,436 @@
+// SmartHostel — Prisma Schema
+// All 14 tables + enums matching the ER Diagram
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===== ENUMS =====
+
+enum UserRole {
+  STUDENT
+  WARDEN
+  ACCOUNTANT
+  ADMIN
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  FULL
+  UNDER_MAINTENANCE
+}
+
+enum AllocationStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  OCCUPIED
+  VACATED
+}
+
+enum PaymentType {
+  HOSTEL_FEE
+  MESS_FEE
+  PENALTY
+  SECURITY_DEPOSIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  PARTIALLY_PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  CARD
+}
+
+enum ComplaintCategory {
+  MAINTENANCE
+  HYGIENE
+  NOISE
+  ELECTRICAL
+  PLUMBING
+  OTHER
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  ON_LEAVE
+}
+
+enum MessPlanType {
+  VEG
+  NON_VEG
+  SPECIAL
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACKS
+}
+
+enum NotificationType {
+  ALLOCATION_UPDATE
+  PAYMENT_REMINDER
+  PAYMENT_OVERDUE
+  COMPLAINT_UPDATE
+  ATTENDANCE_ALERT
+  MESS_PLAN_UPDATE
+  SYSTEM_ANNOUNCEMENT
+}
+
+// ===== TABLE 1: USERS =====
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student       Student?
+  warden        Warden?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  recordedPayments Payment[] @relation("RecordedBy")
+
+  @@map("users")
+}
+
+// ===== TABLE 2: STUDENTS =====
+
+model Student {
+  id               String  @id @default(uuid())
+  userId           String  @unique @map("user_id")
+  enrollmentNumber String  @unique @map("enrollment_number")
+  department       String?
+  year             Int?
+  emergencyContact String? @map("emergency_contact")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomAllocations   RoomAllocation[]
+  payments          Payment[]
+  complaints        Complaint[]
+  attendanceRecords AttendanceRecord[]
+  entryExitLogs     EntryExitLog[]
+  messSubscriptions MessSubscription[]
+
+  @@map("students")
+}
+
+// ===== TABLE 3: WARDENS =====
+
+model Warden {
+  id             String  @id @default(uuid())
+  userId         String  @unique @map("user_id")
+  assignedBlockId String? @map("assigned_block_id")
+  assignedFloor  Int?    @map("assigned_floor")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBlock     Block?             @relation("WardenBlock", fields: [assignedBlockId], references: [id], onDelete: SetNull)
+  managedBlocks     Block[]            @relation("BlockWarden")
+  approvedAllocations RoomAllocation[]
+  assignedComplaints  Complaint[]
+  markedAttendance    AttendanceRecord[]
+  loggedEntryExit     EntryExitLog[]
+
+  @@map("wardens")
+}
+
+// ===== TABLE 4: BLOCKS =====
+
+model Block {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  totalFloors Int     @map("total_floors")
+  totalRooms Int      @default(0) @map("total_rooms")
+  wardenId   String?  @map("warden_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  warden         Warden?  @relation("BlockWarden", fields: [wardenId], references: [id], onDelete: SetNull)
+  assignedWardens Warden[] @relation("WardenBlock")
+  rooms          Room[]
+
+  @@map("blocks")
+}
+
+// ===== TABLE 5: ROOMS =====
+
+model Room {
+  id              String     @id @default(uuid())
+  roomNumber      String     @unique @map("room_number")
+  blockId         String     @map("block_id")
+  floor           Int
+  type            RoomType
+  capacity        Int
+  currentOccupancy Int       @default(0) @map("current_occupancy")
+  status          RoomStatus @default(AVAILABLE)
+  pricePerMonth   Decimal    @map("price_per_month") @db.Decimal(10, 2)
+  amenities       String?
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  block           Block            @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  roomAllocations RoomAllocation[]
+
+  @@index([blockId, status])
+  @@index([type, status])
+  @@map("rooms")
+}
+
+// ===== TABLE 6: ROOM ALLOCATIONS =====
+
+model RoomAllocation {
+  id            String           @id @default(uuid())
+  studentId     String           @map("student_id")
+  roomId        String?          @map("room_id")
+  status        AllocationStatus @default(REQUESTED)
+  preferredType RoomType?        @map("preferred_type")
+  requestDate   DateTime         @default(now()) @map("request_date") @db.Date
+  approvalDate  DateTime?        @map("approval_date") @db.Date
+  occupiedDate  DateTime?        @map("occupied_date") @db.Date
+  vacatedDate   DateTime?        @map("vacated_date") @db.Date
+  approvedBy    String?          @map("approved_by")
+  remarks       String?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  room     Room?   @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  approver Warden? @relation(fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@index([studentId, status])
+  @@index([status, requestDate])
+  @@map("room_allocations")
+}
+
+// ===== TABLE 7: PAYMENTS =====
+
+model Payment {
+  id            String        @id @default(uuid())
+  studentId     String        @map("student_id")
+  type          PaymentType
+  amount        Decimal       @db.Decimal(10, 2)
+  penaltyAmount Decimal       @default(0) @map("penalty_amount") @db.Decimal(10, 2)
+  totalAmount   Decimal       @map("total_amount") @db.Decimal(10, 2)
+  dueDate       DateTime      @map("due_date") @db.Date
+  paidDate      DateTime?     @map("paid_date") @db.Date
+  status        PaymentStatus @default(PENDING)
+  method        PaymentMethod?
+  receiptNumber String?       @unique @map("receipt_number")
+  month         String?
+  year          Int?
+  recordedBy    String?       @map("recorded_by")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  recorder User?   @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+
+  @@index([studentId, status])
+  @@index([status, dueDate])
+  @@index([month, year])
+  @@map("payments")
+}
+
+// ===== TABLE 8: COMPLAINTS =====
+
+model Complaint {
+  id          String            @id @default(uuid())
+  studentId   String            @map("student_id")
+  category    ComplaintCategory
+  title       String
+  description String
+  priority    ComplaintPriority @default(MEDIUM)
+  status      ComplaintStatus   @default(OPEN)
+  assignedTo  String?           @map("assigned_to")
+  resolution  String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  resolvedAt  DateTime?         @map("resolved_at")
+
+  // Relations
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  assignee Warden? @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+
+  @@index([studentId, status])
+  @@index([status, priority])
+  @@index([assignedTo, status])
+  @@map("complaints")
+}
+
+// ===== TABLE 9: ATTENDANCE RECORDS =====
+
+model AttendanceRecord {
+  id        String           @id @default(uuid())
+  studentId String           @map("student_id")
+  date      DateTime         @db.Date
+  status    AttendanceStatus
+  markedBy  String?          @map("marked_by")
+  remarks   String?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  marker  Warden? @relation(fields: [markedBy], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
+  @@map("attendance_records")
+}
+
+// ===== TABLE 10: ENTRY EXIT LOGS =====
+
+model EntryExitLog {
+  id        String    @id @default(uuid())
+  studentId String    @map("student_id")
+  entryTime DateTime? @map("entry_time")
+  exitTime  DateTime? @map("exit_time")
+  gate      String?
+  loggedBy  String?   @map("logged_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  logger  Warden? @relation(fields: [loggedBy], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@map("entry_exit_logs")
+}
+
+// ===== TABLE 11: MESS PLANS =====
+
+model MessPlan {
+  id           String       @id @default(uuid())
+  name         String       @unique
+  type         MessPlanType
+  description  String?
+  pricePerMonth Decimal     @map("price_per_month") @db.Decimal(10, 2)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  subscriptions MessSubscription[]
+
+  @@map("mess_plans")
+}
+
+// ===== TABLE 12: MESS SUBSCRIPTIONS =====
+
+model MessSubscription {
+  id        String   @id @default(uuid())
+  studentId String   @map("student_id")
+  planId    String   @map("plan_id")
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  plan    MessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([studentId, isActive])
+  @@map("mess_subscriptions")
+}
+
+// ===== TABLE 13: MESS MENUS =====
+
+model MessMenu {
+  id        String       @id @default(uuid())
+  dayOfWeek String       @map("day_of_week")
+  mealType  MealType     @map("meal_type")
+  items     String
+  planType  MessPlanType @map("plan_type")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@map("mess_menus")
+}
+
+// ===== TABLE 14: NOTIFICATIONS =====
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ===== TABLE 15: AUDIT LOGS =====
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
