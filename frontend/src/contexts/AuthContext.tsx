@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Setup an Axios instance pointing to our backend API
 export const api = axios.create({
-  baseURL: 'http://localhost:5000/api/v1',
+  baseURL: 'http://localhost:3000/api/v1',
 });
 
 // Axios Interceptor to dynamically attach JWT token to all protected requests

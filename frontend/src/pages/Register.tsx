@@ -27,7 +27,7 @@ const Register: React.FC = () => {
     setError('');
 
     // INTERCEPT: Auto-generate Enrollment Number under the hood to improve Tester UX!
-    const submissionData = { ...formData };
+    const submissionData: any = { ...formData };
     if (submissionData.role === 'STUDENT') {
       submissionData.enrollmentNumber = 'STU-' + Math.floor(10000 + Math.random() * 90000);
     }
@@ -120,6 +120,7 @@ const Register: React.FC = () => {
                     <option value="STUDENT">Student</option>
                     <option value="WARDEN">Warden</option>
                     <option value="ACCOUNTANT">Accountant</option>
+                    <option value="ADMIN">Admin</option>
                 </select>
               </div>
           </div>

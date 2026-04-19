@@ -4,7 +4,7 @@ import { StudentDashboard } from '../components/dashboards/StudentDashboard';
 import { WardenDashboard } from '../components/dashboards/WardenDashboard';
 import { AccountantDashboard } from '../components/dashboards/AccountantDashboard';
 import { AdminDashboard } from '../components/dashboards/AdminDashboard';
-import { LogOut, Home, User, Bell, LayoutDashboard, Database, Building, Mail, CheckCircle2 } from 'lucide-react';
+import { LogOut, User, Bell, LayoutDashboard, Database, Building, Mail } from 'lucide-react';
 import { api } from '../contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
