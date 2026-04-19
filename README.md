@@ -9,7 +9,7 @@
 <br />
 
 ## 🌐 Live Demo
-👉 Experience the live project here: 
+👉 Experience the live project here: https://hostel-sphere.vercel.app
 
 ---
 
