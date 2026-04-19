@@ -5,6 +5,8 @@ import allocationRoutes from './allocation.routes';
 import roomRoutes from './room.routes';
 import paymentRoutes from './payment.routes';
 import complaintRoutes from './complaint.routes';
+import attendanceRoutes from './attendance.routes';
+import messRoutes from './mess.routes';
 
 const router = Router();
 
@@ -14,5 +16,7 @@ router.use('/allocations', allocationRoutes);
 router.use('/infrastructure', roomRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/complaints', complaintRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/mess', messRoutes);
 
 export default router;
