@@ -1,4 +1,4 @@
-// All enums used across the SmartHostel system
+// All enums used across the HostelSphere system
 // These map directly to PostgreSQL ENUM types
 
 export enum UserRole {

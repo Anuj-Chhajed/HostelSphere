@@ -1,4 +1,4 @@
-# SmartHostel 🏢 
+# HostelSphere 🏢 
 
 <div align="center">
   <img src="https://img.shields.io/badge/Status-Production%20Ready-success" />
@@ -13,13 +13,13 @@
 
 ---
 
-**SmartHostel** is a next-generation, all-in-one dynamic operating system designed to elevate campus housing infrastructure. Built on a clean-architecture foundation, it seamlessly handles complex operations—from dynamic room allocations and automated mess fee calculation to robust complaint escalation pipelines—all wrapped in a premium, glassmorphic UI.
+**HostelSphere** is a next-generation, all-in-one dynamic operating system designed to elevate campus housing infrastructure. Built on a clean-architecture foundation, it seamlessly handles complex operations—from dynamic room allocations and automated mess fee calculation to robust complaint escalation pipelines—all wrapped in a premium, glassmorphic UI.
 
 ---
 
-## 🌟 Why SmartHostel?
+## 🌟 Why HostelSphere?
 
-Most campus housing management systems are heavily outdated, scattered across Excel spreadsheets, and lack modern security standards. **SmartHostel** solves this by offering a unified, high-performance ecosystem:
+Most campus housing management systems are heavily outdated, scattered across Excel spreadsheets, and lack modern security standards. **HostelSphere** solves this by offering a unified, high-performance ecosystem:
 
 - **Zero Data Fragmentation**: Every action is interconnected. If a student vacates a room, the Accountant dashboard reflects the billing cessation instantly.
 - **Enterprise-Grade Architecture**: Built strictly on Gang of Four (GoF) design patterns to ensure it can gracefully handle spikes of thousands of concurrent students during enrollment periods.
@@ -29,7 +29,7 @@ Most campus housing management systems are heavily outdated, scattered across Ex
 
 ## ✨ System Architecture & Patterns
 
-SmartHostel isn't just a basic CRUD app; it acts as a showcase of scalable software engineering principles and Gang of Four (GoF) design patterns:
+HostelSphere isn't just a basic CRUD app; it acts as a showcase of scalable software engineering principles and Gang of Four (GoF) design patterns:
 
 - 🎭 **State Pattern**: The `RoomAllocationContext` leverages a state machine (Requested → Approved → Occupied → Vacated). This ensures an application cannot skip lifecycle hooks (like triggering payment engines only during the Occupied state).
 - 🧩 **Strategy Pattern**: The billing module calculates invoices dynamically. Whether computing standard block rents, parsing mess plan inclusions, or levying late-fee penalties, the `IFeeCalculationStrategy` ensures rules can be swapped dynamically at checkout without bloated `if/else` statements.

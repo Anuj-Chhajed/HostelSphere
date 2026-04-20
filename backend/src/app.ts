@@ -26,7 +26,7 @@ class App {
   private setupRoutes(): void {
     // Health check route — to test if server is running
     this.app.get('/api/health', (req, res) => {
-      res.json({ success: true, message: 'SmartHostel API is running 🏠' });
+      res.json({ success: true, message: 'HostelSphere API is running 🏠' });
     });
 
     // Register API routes

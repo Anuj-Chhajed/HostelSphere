@@ -38,7 +38,7 @@ const Login: React.FC = () => {
       {/* Login Card */}
       <div className="glass-panel p-8 sm:p-12 max-w-md w-full relative z-10 animate-slideUpFade">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-display font-semibold mb-2">SmartHostel</h1>
+          <h1 className="text-3xl font-display font-semibold mb-2">HostelSphere</h1>
           <p className="text-textSecondary">Welcome back! Sign in to access your dashboard.</p>
         </div>
 

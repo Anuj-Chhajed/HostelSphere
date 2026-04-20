@@ -67,7 +67,7 @@ const Register: React.FC = () => {
 
       <div className="glass-panel p-8 sm:p-10 max-w-xl w-full mx-4 relative z-10 animate-slideUpFade">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-display font-semibold mb-2">Join SmartHostel</h1>
+          <h1 className="text-3xl font-display font-semibold mb-2">Join HostelSphere</h1>
           <p className="text-textSecondary">Initialize your account to enter the ecosystem.</p>
         </div>
 

@@ -35,7 +35,7 @@ const Dashboard: React.FC = () => {
       {/* Sidebar */}
       <aside className="w-full lg:w-64 border-r border-white/5 bg-bgSecondary/30 lg:min-h-screen flex flex-col pt-8">
         <div className="px-8 pb-8 border-b border-white/5 text-center lg:text-left">
-          <h2 className="text-2xl font-display font-semibold mb-1 tracking-tight">SmartHostel</h2>
+          <h2 className="text-2xl font-display font-semibold mb-1 tracking-tight">HostelSphere</h2>
           <span className="text-xs bg-accentPrimary/20 text-accentPrimary px-3 py-1 rounded-full font-medium inline-block flex items-center gap-1 justify-center lg:justify-start max-w-fit mx-auto lg:mx-0">
              <div className="w-1.5 h-1.5 rounded-full bg-accentPrimary animate-pulse" />
             {user?.role} PORTAL

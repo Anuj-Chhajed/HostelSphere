@@ -1,4 +1,4 @@
-// SmartHostel — Prisma Schema
+// HostelSphere — Prisma Schema
 // All 14 tables + enums matching the ER Diagram
 
 generator client {

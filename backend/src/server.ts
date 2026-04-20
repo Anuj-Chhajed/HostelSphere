@@ -18,7 +18,7 @@ async function startServer(): Promise<void> {
 
     // Start listening for requests
     app.listen(PORT, () => {
-      console.log(`🚀 SmartHostel server running on http://localhost:${PORT}`);
+      console.log(`🚀 HostelSphere server running on http://localhost:${PORT}`);
       console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
     });
   } catch (error) {

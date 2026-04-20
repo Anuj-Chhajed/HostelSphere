@@ -9,7 +9,7 @@ const Landing: React.FC = () => {
       <nav className="fixed w-full z-50 px-6 py-4 lg:px-12 backdrop-blur-md bg-bgPrimary/60 border-b border-white/5 transition-all">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div className="text-2xl font-display font-bold tracking-tight">
-                SmartHostel<span className="text-accentPrimary">.</span>
+                HostelSphere<span className="text-accentPrimary">.</span>
             </div>
             <div className="flex gap-4 items-center">
                 <Link to="/login" className="text-textSecondary hover:text-white font-medium transition-colors px-4 py-2">Log In</Link>
@@ -89,7 +89,7 @@ const Landing: React.FC = () => {
 
       {/* Footer */}
       <footer className="py-8 px-6 text-center border-t border-white/5 text-textTertiary text-sm relative z-10">
-        <p>© 2026 SmartHostel. Open Architecture. Built with ❤️.</p>
+        <p>© 2026 HostelSphere. Open Architecture. Built with ❤️.</p>
       </footer>
     </div>
   );
