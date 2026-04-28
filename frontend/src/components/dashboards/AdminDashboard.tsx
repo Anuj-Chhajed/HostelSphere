@@ -1,47 +1,98 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { api } from '../../contexts/AuthContext';
-import { Database, Plus, Building, Server, ChevronDown, ChevronUp, Users, DoorOpen, BarChart3, Eye, EyeOff } from 'lucide-react';
+import { Building, ChevronDown, ChevronUp, Database, DoorOpen, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 
-export const AdminDashboard: React.FC = () => {
+type Block = {
+  id: string;
+  name: string;
+  totalFloors: number;
+};
+
+type ResidentAllocation = {
+  id: string;
+  status: string;
+  student: {
+    user: {
+      name: string;
+      email?: string;
+    };
+  };
+};
+
+type Room = {
+  id: string;
+  roomNumber: string;
+  blockId: string;
+  floor: number;
+  type: string;
+  capacity: number;
+  currentOccupancy: number;
+  status: string;
+  pricePerMonth: string;
+  block?: {
+    name?: string;
+  };
+  roomAllocations?: ResidentAllocation[];
+};
+
+type DashboardResponse<T> = {
+  data: {
+    data: T;
+  };
+};
+
+const errorMessage = (error: unknown, fallback: string) => (
+  axios.isAxiosError(error) ? error.response?.data?.message || fallback : fallback
+);
+
+export const AdminDashboard: React.FC<{ activeView?: 'blocks' | 'rooms' | 'inventory' }> = ({ activeView = 'blocks' }) => {
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Form states
   const [blockName, setBlockName] = useState('');
-  const [totalFloors, setTotalFloors] = useState<number>(3);
-  
+  const [totalFloors, setTotalFloors] = useState(3);
+
   const [roomNumber, setRoomNumber] = useState('');
   const [blockId, setBlockId] = useState('');
-  const [floor, setFloor] = useState<number>(1);
-  const [capacity, setCapacity] = useState<number>(2);
+  const [floor, setFloor] = useState(1);
+  const [capacity, setCapacity] = useState(2);
   const [type, setType] = useState('DOUBLE');
-  const [price, setPrice] = useState<number>(1000);
+  const [price, setPrice] = useState(1000);
 
-  // Data states
-  const [blocks, setBlocks] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [showInventory, setShowInventory] = useState(true);
   const [filterBlock, setFilterBlock] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = React.useEffectEvent(async () => {
     try {
       const [blocksRes, roomsRes] = await Promise.all([
-        api.get('/rooms/blocks').catch(() => ({ data: { data: [] } })),
-        api.get('/rooms/rooms').catch(() => ({ data: { data: [] } })),
-      ]);
-      setBlocks(blocksRes.data.data || []);
-      setRooms(roomsRes.data.data || []);
-      // Default blockId to first block if available
-      const b = blocksRes.data.data || [];
-      if (b.length > 0 && !blockId) setBlockId(b[0].id);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+        api.get('/rooms/blocks').catch(() => ({ data: { data: [] as Block[] } })),
+        api.get('/rooms/rooms').catch(() => ({ data: { data: [] as Room[] } })),
+      ]) as [
+        DashboardResponse<Block[]>,
+        DashboardResponse<Room[]>,
+      ];
 
-  useEffect(() => { fetchData(); }, []);
+      const blockData = blocksRes.data.data || [];
+      const roomData = roomsRes.data.data || [];
+      setBlocks(blockData);
+      setRooms(roomData);
+      if (blockData.length > 0 && !blockId) setBlockId(blockData[0].id);
+    } catch (error) {
+      console.error(error);
+    }
+  });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleCreateBlock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,11 +100,11 @@ export const AdminDashboard: React.FC = () => {
     setSuccessMsg(null);
     try {
       await api.post('/rooms/blocks', { name: blockName, totalFloors });
-      setSuccessMsg(`Successfully created Block "${blockName}"!`);
+      setSuccessMsg(`Successfully created Block "${blockName}"`);
       setBlockName('');
-      fetchData();
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to create block');
+      void fetchData();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to create block'));
     } finally {
       setLoading(false);
     }
@@ -64,265 +115,354 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true);
     setSuccessMsg(null);
     try {
-      await api.post('/rooms/rooms', { 
-        roomNumber, blockId, floor: Number(floor), type, 
-        capacity: Number(capacity), pricePerMonth: Number(price) 
+      await api.post('/rooms/rooms', {
+        roomNumber,
+        blockId,
+        floor: Number(floor),
+        type,
+        capacity: Number(capacity),
+        pricePerMonth: Number(price),
       });
-      setSuccessMsg(`Successfully created Room "${roomNumber}"!`);
+      setSuccessMsg(`Successfully created Room "${roomNumber}"`);
       setRoomNumber('');
-      fetchData();
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to create room');
+      void fetchData();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to create room'));
     } finally {
       setLoading(false);
     }
   };
 
-  // Derived stats
-  const totalRooms = rooms.length;
-  const availableRooms = rooms.filter(r => r.status === 'AVAILABLE').length;
-  const occupiedRooms = rooms.filter(r => r.status === 'OCCUPIED' || r.status === 'FULL').length;
-  const totalCapacity = rooms.reduce((s, r) => s + r.capacity, 0);
-  const totalOccupants = rooms.reduce((s, r) => s + r.currentOccupancy, 0);
+  const handleDeleteBlock = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete Block "${name}"?\nThis will also delete all rooms inside it. This action cannot be undone.`)) return;
+    try {
+      await api.delete(`/rooms/blocks/${id}`);
+      setSuccessMsg(`Successfully deleted Block "${name}"`);
+      void fetchData();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to delete block'));
+    }
+  };
 
-  // Filtered rooms
-  const filteredRooms = rooms.filter(r => {
-    if (filterBlock !== 'ALL' && r.blockId !== filterBlock) return false;
-    if (filterStatus !== 'ALL' && r.status !== filterStatus) return false;
+  const handleDeleteRoom = async (id: string, roomNumber: string) => {
+    if (!window.confirm(`Are you sure you want to delete Room "${roomNumber}"?`)) return;
+    try {
+      await api.delete(`/rooms/rooms/${id}`);
+      setSuccessMsg(`Successfully deleted Room "${roomNumber}"`);
+      void fetchData();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to delete room'));
+    }
+  };
+
+  const handleVacateRoom = async (allocationId: string, studentName: string) => {
+    if (!window.confirm(`Are you sure you want to unallocate ${studentName} from this room?`)) return;
+    try {
+      await api.post(`/allocations/${allocationId}/vacate`);
+      setSuccessMsg(`Successfully unallocated ${studentName}`);
+      void fetchData();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to unallocate resident'));
+    }
+  };
+
+  const totalRooms = rooms.length;
+  const availableRooms = rooms.filter((room) => room.status === 'AVAILABLE').length;
+  const occupiedRooms = rooms.filter((room) => room.status === 'OCCUPIED' || room.status === 'FULL').length;
+  const totalCapacity = rooms.reduce((sum, room) => sum + room.capacity, 0);
+  const totalOccupants = rooms.reduce((sum, room) => sum + room.currentOccupancy, 0);
+
+  const filteredRooms = rooms.filter((room) => {
+    if (filterBlock !== 'ALL' && room.blockId !== filterBlock) return false;
+    if (filterStatus !== 'ALL' && room.status !== filterStatus) return false;
     return true;
   });
 
-  const statusColor = (status: string) => {
-    switch(status) {
-      case 'AVAILABLE': return 'bg-success/20 text-success';
-      case 'OCCUPIED': return 'bg-accentPrimary/20 text-accentPrimary';
-      case 'FULL': return 'bg-error/20 text-error';
-      case 'UNDER_MAINTENANCE': return 'bg-warning/20 text-warning';
-      default: return 'bg-white/10 text-textSecondary';
+  const statusTone = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE':
+        return 'bg-[#53d18a]/15 text-[#53d18a]';
+      case 'OCCUPIED':
+        return 'bg-[#66e3ff]/15 text-[#66e3ff]';
+      case 'FULL':
+        return 'bg-rose-400/15 text-rose-300';
+      case 'UNDER_MAINTENANCE':
+        return 'bg-[#f7c948]/15 text-[#f7c948]';
+      default:
+        return 'bg-white/10 text-white/[0.45]';
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {successMsg && (
-         <div className="bg-success/10 border border-success/30 text-success px-6 py-4 rounded-xl flex items-center gap-3 font-medium cursor-pointer" onClick={() => setSuccessMsg(null)}>
-             <Server size={20} />
-             {successMsg}
-         </div>
+        <div className="border border-[#53d18a]/25 bg-[#53d18a]/10 px-5 py-4 text-sm font-medium text-[#53d18a]" onClick={() => setSuccessMsg(null)}>
+          {successMsg}
+        </div>
       )}
 
-      {/* Summary Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-panel p-5 text-center">
-          <DoorOpen size={20} className="mx-auto mb-2 text-accentPrimary" />
-          <div className="text-2xl font-display font-bold">{totalRooms}</div>
-          <div className="text-xs text-textSecondary mt-1">Total Rooms</div>
-        </div>
-        <div className="glass-panel p-5 text-center">
-          <div className="w-5 h-5 rounded-full bg-success/30 mx-auto mb-2 flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-success" /></div>
-          <div className="text-2xl font-display font-bold text-success">{availableRooms}</div>
-          <div className="text-xs text-textSecondary mt-1">Available</div>
-        </div>
-        <div className="glass-panel p-5 text-center">
-          <Users size={20} className="mx-auto mb-2 text-warning" />
-          <div className="text-2xl font-display font-bold">{totalOccupants} <span className="text-sm text-textSecondary font-normal">/ {totalCapacity}</span></div>
-          <div className="text-xs text-textSecondary mt-1">Occupancy</div>
-        </div>
-        <div className="glass-panel p-5 text-center">
-          <BarChart3 size={20} className="mx-auto mb-2 text-error" />
-          <div className="text-2xl font-display font-bold">{occupiedRooms}</div>
-          <div className="text-xs text-textSecondary mt-1">Occupied / Full</div>
-        </div>
-      </div>
-
-      {/* Create Forms */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Create Block Widget */}
-        <section className="glass-panel p-8">
-            <h2 className="text-xl font-display font-semibold flex items-center gap-2 mb-2">
-                <Building className="text-accentPrimary" size={24} /> Register New Block
-            </h2>
-            <p className="text-sm text-textSecondary mb-6">
-                Create a physical building before adding rooms to it.
-            </p>
-            
-            <form onSubmit={handleCreateBlock} className="space-y-4">
-                <div>
-                   <label className="text-xs text-textSecondary mb-1 block">Block Name</label>
-                   <input required value={blockName} onChange={e => setBlockName(e.target.value)} placeholder="e.g. Alpha Tower" className="input-field py-2 text-sm" />
+      {activeView === 'blocks' && (
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="border border-white/10 bg-[#10110f]/[0.82] p-5 sm:p-6">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-3 border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <Building className="text-[#ff6b9a]" size={19} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.5]">block control</span>
                 </div>
-                <div>
-                   <label className="text-xs text-textSecondary mb-1 block">Total Floors</label>
-                   <input type="number" required value={totalFloors} onChange={e => setTotalFloors(Number(e.target.value))} min={1} className="input-field py-2 text-sm" />
-                </div>
-                <button type="submit" disabled={loading} className="btn-primary w-full py-3 flex justify-center items-center gap-2">
-                    <Plus size={16} /> Deploy Block
-                </button>
-            </form>
-        </section>
-
-        {/* Create Room Widget */}
-        <section className="glass-panel p-8">
-            <h2 className="text-xl font-display font-semibold flex items-center gap-2 mb-2">
-                <Database className="text-warning" size={24} /> Provision Room
-            </h2>
-            <p className="text-sm text-textSecondary mb-6">
-                Attach a new room to an existing Block.
-            </p>
-            
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-textSecondary mb-1 block">Room Number</label>
-                        <input required value={roomNumber} onChange={e => setRoomNumber(e.target.value)} placeholder="101A" className="input-field py-2 text-sm" />
-                    </div>
-                    <div>
-                        <label className="text-xs text-textSecondary mb-1 block">Block</label>
-                        <select required value={blockId} onChange={e => setBlockId(e.target.value)} className="input-field py-2 text-sm bg-bgTertiary">
-                            {blocks.map(b => (
-                              <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                    <div>
-                        <label className="text-xs text-textSecondary mb-1 block">Floor</label>
-                        <input type="number" required value={floor} onChange={e => setFloor(Number(e.target.value))} min={1} className="input-field py-2 text-sm" />
-                    </div>
-                    <div>
-                        <label className="text-xs text-textSecondary mb-1 block">Type</label>
-                        <select value={type} onChange={e => { setType(e.target.value); setCapacity(e.target.value === 'DOUBLE' ? 2 : 1); }} className="input-field py-2 text-sm bg-bgTertiary">
-                            <option value="SINGLE">Single</option>
-                            <option value="DOUBLE">Double</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-textSecondary mb-1 block">Rent / Mo</label>
-                        <input type="number" required value={price} onChange={e => setPrice(Number(e.target.value))} min={1} className="input-field py-2 text-sm" />
-                    </div>
-                </div>
-
-                <button type="submit" disabled={loading} className="w-full bg-warning/20 hover:bg-warning/30 text-warning border border-warning/10 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
-                    <Database size={16} /> Mount Room Entity
-                </button>
-            </form>
-        </section>
-      </div>
-
-      {/* Room Inventory */}
-      <section className="glass-panel p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-display font-semibold flex items-center gap-2">
-            <DoorOpen className="text-accentPrimary" size={24} /> Room Inventory
-          </h2>
-          <button onClick={() => setShowInventory(!showInventory)} className="flex items-center gap-1 text-sm text-textSecondary hover:text-white transition-colors">
-            {showInventory ? <EyeOff size={16} /> : <Eye size={16} />}
-            {showInventory ? 'Collapse' : 'Expand'}
-          </button>
-        </div>
-
-        {showInventory && (
-          <>
-            {/* Filter bar */}
-            <div className="flex flex-wrap gap-3 mb-6">
-              <select value={filterBlock} onChange={e => setFilterBlock(e.target.value)} className="bg-bgTertiary border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
-                <option value="ALL">All Blocks</option>
-                {blocks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-bgTertiary border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
-                <option value="ALL">All Statuses</option>
-                <option value="AVAILABLE">Available</option>
-                <option value="OCCUPIED">Occupied</option>
-                <option value="FULL">Full</option>
-                <option value="UNDER_MAINTENANCE">Under Maintenance</option>
-              </select>
-              <div className="ml-auto text-xs text-textTertiary self-center">
-                Showing {filteredRooms.length} of {totalRooms} rooms
+                <h3 className="font-display text-4xl font-black uppercase sm:text-5xl">Hostel Blocks</h3>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/[0.55]">
+                  Create building blocks first, then attach room inventory to the correct structure.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/[0.45]">registered blocks</p>
+                <p className="font-display text-4xl font-black text-[#ff6b9a]">{blocks.length.toString().padStart(2, '0')}</p>
               </div>
             </div>
 
-            {filteredRooms.length === 0 ? (
-              <div className="text-center py-12 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
-                No rooms found. Create blocks and rooms above to populate the inventory.
+            <form onSubmit={handleCreateBlock} className="grid gap-4 lg:grid-cols-[1fr_180px_auto] lg:items-end">
+              <div>
+                <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-white/[0.45]">Block name</label>
+                <input required value={blockName} onChange={(e) => setBlockName(e.target.value)} placeholder="Alpha Tower" className="input-field py-3 text-sm" />
               </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Table Header */}
-                <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 text-[11px] uppercase tracking-wider text-textTertiary font-semibold">
-                  <div className="col-span-2">Room</div>
-                  <div className="col-span-2">Building</div>
-                  <div className="col-span-1">Floor</div>
-                  <div className="col-span-1">Type</div>
-                  <div className="col-span-2">Occupancy</div>
-                  <div className="col-span-2">Status</div>
-                  <div className="col-span-1">Rent</div>
-                  <div className="col-span-1"></div>
-                </div>
+              <div>
+                <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-white/[0.45]">Total floors</label>
+                <input type="number" min={1} required value={totalFloors} onChange={(e) => setTotalFloors(Number(e.target.value))} className="input-field py-3 text-sm" />
+              </div>
+              <button type="submit" disabled={loading} className="btn-primary px-5 py-3 text-xs">
+                <Plus size={15} /> Create Block
+              </button>
+            </form>
 
-                {filteredRooms.map(room => (
-                  <div key={room.id}>
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-bgTertiary rounded-xl px-4 py-3 border border-white/5 hover:border-white/10 transition-colors items-center text-sm">
-                      <div className="col-span-2 font-semibold text-white">{room.roomNumber}</div>
-                      <div className="col-span-2 text-textSecondary">{room.block?.name || '—'}</div>
-                      <div className="col-span-1 text-textSecondary">{room.floor}</div>
-                      <div className="col-span-1 text-textSecondary">{room.type}</div>
-                      <div className="col-span-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-white/5 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all ${room.currentOccupancy >= room.capacity ? 'bg-error' : room.currentOccupancy > 0 ? 'bg-accentPrimary' : 'bg-white/10'}`}
-                              style={{ width: `${(room.currentOccupancy / room.capacity) * 100}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-textSecondary whitespace-nowrap">{room.currentOccupancy}/{room.capacity}</span>
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {blocks.length === 0 ? (
+                <EmptyState label="No blocks registered yet." />
+              ) : (
+                blocks.map((block) => (
+                  <div key={block.id} className="group flex items-start justify-between border border-white/10 bg-white/[0.03] p-4">
+                    <div>
+                      <p className="font-display text-2xl font-black">{block.name}</p>
+                      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/[0.45]">{block.totalFloors} floors</p>
+                    </div>
+                    <button onClick={() => handleDeleteBlock(block.id, block.name)} className="p-2 text-white/30 opacity-0 transition-colors hover:text-rose-400 group-hover:opacity-100" title="Delete Block">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <InfoCell label="Total Rooms" value={totalRooms.toString().padStart(2, '0')} />
+            <InfoCell label="Available" value={availableRooms.toString().padStart(2, '0')} />
+            <InfoCell label="Occupancy" value={`${totalOccupants}/${totalCapacity}`} />
+          </div>
+        </section>
+      )}
+
+      {activeView === 'rooms' && (
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="border border-white/10 bg-[#10110f]/[0.82] p-5 sm:p-6">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-3 border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <DoorOpen className="text-[#d8ff65]" size={19} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.5]">room provisioning</span>
+                </div>
+                <h3 className="font-display text-4xl font-black uppercase sm:text-5xl">Create Rooms</h3>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/[0.55]">
+                  Add room records to a block with floor, type, capacity, and monthly rent.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/[0.45]">provisioned rooms</p>
+                <p className="font-display text-4xl font-black text-[#d8ff65]">{totalRooms.toString().padStart(2, '0')}</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateRoom} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <Field label="Room number">
+                <input required value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="101A" className="input-field py-3 text-sm" />
+              </Field>
+              <Field label="Block">
+                <select required value={blockId} onChange={(e) => setBlockId(e.target.value)} className="input-field py-3 text-sm">
+                  {blocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}
+                </select>
+              </Field>
+              <Field label={`Floor (Max: ${blocks.find((b) => b.id === blockId)?.totalFloors || 1})`}>
+                <input type="number" min={1} max={blocks.find((b) => b.id === blockId)?.totalFloors || 1} required value={floor} onChange={(e) => setFloor(Number(e.target.value))} className="input-field py-3 text-sm" />
+              </Field>
+              <Field label="Type">
+                <select
+                  value={type}
+                  onChange={(e) => {
+                    setType(e.target.value);
+                    setCapacity(e.target.value === 'DOUBLE' ? 2 : 1);
+                  }}
+                  className="input-field py-3 text-sm"
+                >
+                  <option value="SINGLE">Single</option>
+                  <option value="DOUBLE">Double</option>
+                </select>
+              </Field>
+              <Field label="Capacity">
+                <input type="number" value={capacity} disabled className="input-field py-3 text-sm opacity-50 cursor-not-allowed border-none bg-white/5" title="Capacity is automatically set by room type" />
+              </Field>
+              <Field label="Rent / month">
+                <input type="number" min={1} required value={price} onChange={(e) => setPrice(Number(e.target.value))} className="input-field py-3 text-sm" />
+              </Field>
+              <div className="md:col-span-2 xl:col-span-3">
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-xs">
+                  <Plus size={15} /> Create Room
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="grid gap-4">
+            <InfoCell label="Available Rooms" value={availableRooms.toString().padStart(2, '0')} />
+            <InfoCell label="Occupied / Full" value={occupiedRooms.toString().padStart(2, '0')} />
+          </div>
+        </section>
+      )}
+
+      {activeView === 'inventory' && (
+        <section className="border border-white/10 bg-[#10110f]/[0.82] p-5 sm:p-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-3 border border-white/10 bg-white/[0.03] px-4 py-3">
+                <Database className="text-[#66e3ff]" size={19} />
+                <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.5]">inventory graph</span>
+              </div>
+              <h3 className="font-display text-4xl font-black uppercase sm:text-5xl">Room Inventory</h3>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/[0.55]">
+                Filter room state, inspect occupancy, and expand resident assignments when needed.
+              </p>
+            </div>
+            <button onClick={() => setShowInventory(!showInventory)} className="btn-secondary px-4 py-2 text-xs">
+              {showInventory ? <EyeOff size={15} /> : <Eye size={15} />}
+              {showInventory ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+
+          {showInventory && (
+            <>
+              <div className="mb-5 flex flex-wrap gap-3">
+                <select value={filterBlock} onChange={(e) => setFilterBlock(e.target.value)} className="input-field w-auto min-w-[180px] py-3 text-sm">
+                  <option value="ALL">All Blocks</option>
+                  {blocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}
+                </select>
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="input-field w-auto min-w-[200px] py-3 text-sm">
+                  <option value="ALL">All Statuses</option>
+                  <option value="AVAILABLE">Available</option>
+                  <option value="OCCUPIED">Occupied</option>
+                  <option value="FULL">Full</option>
+                  <option value="UNDER_MAINTENANCE">Under Maintenance</option>
+                </select>
+                <div className="ml-auto self-center text-xs text-white/[0.42]">
+                  Showing {filteredRooms.length} of {totalRooms}
+                </div>
+              </div>
+
+              {filteredRooms.length === 0 ? (
+                <EmptyState label="No rooms found for the selected filters." />
+              ) : (
+                <div className="space-y-3">
+                  {filteredRooms.map((room) => (
+                    <div key={room.id}>
+                      <div className="grid gap-4 border border-white/10 bg-white/[0.03] p-4 lg:grid-cols-[.9fr_.9fr_.55fr_.55fr_.85fr_.85fr_auto] lg:items-center">
+                        <div>
+                          <p className="font-display text-2xl font-black">{room.roomNumber}</p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/[0.42]">{room.block?.name || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">occupancy</p>
+                          <p className="mt-2 font-display text-2xl font-black">{room.currentOccupancy}/{room.capacity}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">floor</p>
+                          <p className="mt-2 font-semibold">{room.floor}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">type</p>
+                          <p className="mt-2 font-semibold">{room.type}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">rent</p>
+                          <p className="mt-2 font-semibold">₹{parseFloat(room.pricePerMonth).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">status</p>
+                          <span className={`mt-2 inline-flex px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${statusTone(room.status)}`}>
+                            {room.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 lg:justify-self-end">
+                          <button onClick={() => handleDeleteRoom(room.id, room.roomNumber)} className="p-2 text-white/30 transition-colors hover:text-rose-400" title="Delete Room">
+                            <Trash2 size={16} />
+                          </button>
+                          {room.roomAllocations && room.roomAllocations.length > 0 && (
+                            <button onClick={() => setExpandedRoom(expandedRoom === room.id ? null : room.id)} className="btn-secondary px-4 py-2 text-xs">
+                              {expandedRoom === room.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                              {expandedRoom === room.id ? 'Hide' : 'Residents'}
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <div className="col-span-2">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase ${statusColor(room.status)}`}>
-                          {room.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <div className="col-span-1 text-textSecondary text-xs">₹{parseFloat(room.pricePerMonth).toLocaleString()}</div>
-                      <div className="col-span-1 text-right">
-                        {room.roomAllocations?.length > 0 && (
-                          <button onClick={() => setExpandedRoom(expandedRoom === room.id ? null : room.id)} className="text-textSecondary hover:text-white transition-colors">
-                            {expandedRoom === room.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                          </button>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Expanded occupant details */}
-                    {expandedRoom === room.id && room.roomAllocations?.length > 0 && (
-                      <div className="ml-4 mr-4 mt-1 mb-2 bg-white/5 rounded-xl p-4 border border-white/5 space-y-2 animate-fade-in-up">
-                        <h4 className="text-xs uppercase tracking-wider text-textTertiary font-semibold mb-2">Current Residents</h4>
-                        {room.roomAllocations.map((alloc: any) => (
-                          <div key={alloc.id} className="flex justify-between items-center text-sm py-1.5 border-b border-white/5 last:border-0">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-accentPrimary/20 text-accentPrimary flex items-center justify-center text-xs font-bold">
-                                {alloc.student.user.name.charAt(0)}
+                      {expandedRoom === room.id && room.roomAllocations && room.roomAllocations.length > 0 && (
+                        <div className="mt-2 border border-white/10 bg-black/20 p-4">
+                          <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.42]">current residents</p>
+                          <div className="space-y-3">
+                            {room.roomAllocations.map((allocation) => (
+                              <div key={allocation.id} className="flex items-center justify-between border border-white/10 bg-white/[0.03] px-4 py-3">
+                                <div>
+                                  <p className="font-semibold">{allocation.student.user.name}</p>
+                                  <p className="text-xs text-white/[0.45]">{allocation.student.user.email || 'No email'}</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <span className={`px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${statusTone(allocation.status === 'OCCUPIED' ? 'OCCUPIED' : 'AVAILABLE')}`}>
+                                    {allocation.status}
+                                  </span>
+                                  <button onClick={() => handleVacateRoom(allocation.id, allocation.student.user.name)} className="text-[10px] font-bold uppercase tracking-widest text-rose-400 hover:text-rose-300">
+                                    Unallocate
+                                  </button>
+                                </div>
                               </div>
-                              <div>
-                                <span className="text-white font-medium">{alloc.student.user.name}</span>
-                                <span className="text-textTertiary text-xs ml-2">{alloc.student.user.email}</span>
-                              </div>
-                            </div>
-                            <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${statusColor(alloc.status === 'OCCUPIED' ? 'OCCUPIED' : 'AVAILABLE')}`}>
-                              {alloc.status}
-                            </span>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </section>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 };
+
+const EmptyState = ({ label }: { label: string }) => (
+  <div className="grid min-h-36 place-items-center border border-dashed border-white/10 bg-white/[0.025] p-6 text-center text-sm text-white/[0.48]">
+    {label}
+  </div>
+);
+
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-white/[0.45]">{label}</label>
+    {children}
+  </div>
+);
+
+const InfoCell = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="border border-white/10 bg-black/20 p-4">
+    <p className="text-[10px] uppercase tracking-[0.22em] text-white/[0.4]">{label}</p>
+    <p className="mt-3 font-display text-2xl font-black">{value}</p>
+  </div>
+);

@@ -1,47 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { api } from '../../contexts/AuthContext';
-import { Wallet, Calculator, AlertTriangle, Building2, CheckCircle2, BarChart3, TrendingUp, Clock } from 'lucide-react';
+import { AlertTriangle, Building2, Calculator, CreditCard, Wallet } from 'lucide-react';
 
-export const AccountantDashboard: React.FC = () => {
+type Payment = {
+  id: string;
+  type?: string;
+  status: string;
+  dueDate: string;
+  amount?: string | number;
+  totalAmount?: string | number;
+  receiptNumber?: string | null;
+  student?: {
+    user?: {
+      name?: string;
+    };
+  };
+};
+
+type Stats = {
+  totalRevenue: number;
+  collected: number;
+  pending: number;
+  overdue: number;
+  totalBills: number;
+};
+
+type DashboardResponse<T> = {
+  data: {
+    data: T;
+  };
+};
+
+const errorMessage = (error: unknown, fallback: string) => (
+  axios.isAxiosError(error) ? error.response?.data?.message || fallback : fallback
+);
+
+const money = (value: number) => `₹${value.toLocaleString()}`;
+
+export const AccountantDashboard: React.FC<{ activeView?: 'invoices' | 'penalties' | 'payments' }> = ({ activeView = 'invoices' }) => {
   const [loadingGenerate, setLoadingGenerate] = useState(false);
   const [loadingPenalties, setLoadingPenalties] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [stats, setStats] = useState({ totalRevenue: 0, collected: 0, pending: 0, overdue: 0, totalBills: 0 });
-  const [recentPayments, setRecentPayments] = useState<any[]>([]);
+  const [stats, setStats] = useState<Stats>({ totalRevenue: 0, collected: 0, pending: 0, overdue: 0, totalBills: 0 });
+  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
 
-  const fetchFinancials = async () => {
+  const fetchFinancials = React.useEffectEvent(async () => {
     try {
-      // We don't have a dedicated admin payments endpoint, but we can use `/payments/all` for accountants
-      const res = await api.get('/payments/all').catch(() => ({ data: { data: [] } }));
+      const res = await api.get('/payments/all').catch(() => ({ data: { data: [] as Payment[] } })) as DashboardResponse<Payment[]>;
       const payments = res.data.data || [];
 
-      const totalRevenue = payments.reduce((s: number, p: any) => s + Number(p.totalAmount || p.amount || 0), 0);
-      const collected = payments.filter((p: any) => p.status === 'PAID').reduce((s: number, p: any) => s + Number(p.totalAmount || p.amount || 0), 0);
-      const pending = payments.filter((p: any) => p.status === 'PENDING').reduce((s: number, p: any) => s + Number(p.totalAmount || p.amount || 0), 0);
-      const overdue = payments.filter((p: any) => p.status === 'OVERDUE').reduce((s: number, p: any) => s + Number(p.totalAmount || p.amount || 0), 0);
-      
-      setStats({ totalRevenue, collected, pending, overdue, totalBills: payments.length });
-      setRecentPayments(payments.slice(0, 10));
-    } catch (e) {
-      console.error('Failed to fetch financials', e);
-    }
-  };
+      const totalRevenue = payments.reduce((sum, payment) => sum + Number(payment.totalAmount || payment.amount || 0), 0);
+      const collected = payments.filter((payment) => payment.status === 'PAID').reduce((sum, payment) => sum + Number(payment.totalAmount || payment.amount || 0), 0);
+      const pending = payments.filter((payment) => payment.status === 'PENDING').reduce((sum, payment) => sum + Number(payment.totalAmount || payment.amount || 0), 0);
+      const overdue = payments.filter((payment) => payment.status === 'OVERDUE').reduce((sum, payment) => sum + Number(payment.totalAmount || payment.amount || 0), 0);
+      const sortedPayments = [...payments].sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
-  useEffect(() => { fetchFinancials(); }, []);
+      setStats({ totalRevenue, collected, pending, overdue, totalBills: payments.length });
+      setRecentPayments(sortedPayments);
+    } catch (error) {
+      console.error('Failed to fetch financials', error);
+    }
+  });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchFinancials();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleGenerateBills = async () => {
     setLoadingGenerate(true);
     setSuccessMsg(null);
     try {
       const now = new Date();
-      await api.post('/payments/generate', { 
-         month: now.toLocaleString('default', { month: 'long' }).toUpperCase(),
-         year: now.getFullYear() 
+      await api.post('/payments/generate', {
+        month: now.toLocaleString('default', { month: 'long' }).toUpperCase(),
+        year: now.getFullYear(),
       });
-      setSuccessMsg('Successfully generated regular and mess bills for all active allocations!');
-      fetchFinancials();
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to generate bills');
+      setSuccessMsg('Successfully generated regular and mess bills for all active allocations.');
+      void fetchFinancials();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to generate bills'));
     } finally {
       setLoadingGenerate(false);
     }
@@ -52,124 +93,174 @@ export const AccountantDashboard: React.FC = () => {
     setSuccessMsg(null);
     try {
       const res = await api.post('/payments/penalties');
-      setSuccessMsg(res.data.message || 'Successfully applied late fees to overdue payments!');
-      fetchFinancials();
-    } catch (error: any) {
-       alert(error.response?.data?.message || 'Failed to apply penalties');
+      setSuccessMsg(res.data.message || 'Successfully applied late fees to overdue payments.');
+      void fetchFinancials();
+    } catch (error) {
+      alert(errorMessage(error, 'Failed to apply penalties'));
     } finally {
       setLoadingPenalties(false);
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {successMsg && (
-         <div className="bg-success/10 border border-success/30 text-success px-6 py-4 rounded-xl flex items-center gap-3 cursor-pointer" onClick={() => setSuccessMsg(null)}>
-             <CheckCircle2 size={20} />
-             {successMsg}
-         </div>
+        <div className="border border-[#53d18a]/25 bg-[#53d18a]/10 px-5 py-4 text-sm font-medium text-[#53d18a]" onClick={() => setSuccessMsg(null)}>
+          {successMsg}
+        </div>
       )}
 
-      {/* Financial Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-panel p-5 text-center">
-          <TrendingUp size={20} className="mx-auto mb-2 text-accentPrimary" />
-          <div className="text-2xl font-display font-bold">₹{stats.totalRevenue.toLocaleString()}</div>
-          <div className="text-xs text-textSecondary mt-1">Total Billed</div>
-        </div>
-        <div className="glass-panel p-5 text-center">
-          <CheckCircle2 size={20} className="mx-auto mb-2 text-success" />
-          <div className="text-2xl font-display font-bold text-success">₹{stats.collected.toLocaleString()}</div>
-          <div className="text-xs text-textSecondary mt-1">Collected</div>
-        </div>
-        <div className="glass-panel p-5 text-center">
-          <Clock size={20} className="mx-auto mb-2 text-warning" />
-          <div className="text-2xl font-display font-bold text-warning">₹{stats.pending.toLocaleString()}</div>
-          <div className="text-xs text-textSecondary mt-1">Pending</div>
-        </div>
-        <div className="glass-panel p-5 text-center">
-          <AlertTriangle size={20} className="mx-auto mb-2 text-error" />
-          <div className="text-2xl font-display font-bold text-error">₹{stats.overdue.toLocaleString()}</div>
-          <div className="text-xs text-textSecondary mt-1">Overdue</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Generate Bills Widget */}
-        <section className="glass-panel p-8">
-            <h2 className="text-xl font-display font-semibold flex items-center gap-2 mb-2">
-                <Calculator className="text-accentPrimary" size={24} /> Generate Invoices
-            </h2>
-            <p className="text-sm text-textSecondary mb-8 leading-relaxed">
-                Calculate standard room fees and dynamic mess deductions for the current month using the Strategy pattern.
-            </p>
-            <button 
-                onClick={handleGenerateBills} 
-                disabled={loadingGenerate}
-                className="w-full btn-primary py-4 flex items-center justify-center gap-2 text-base font-semibold"
-            >
-                <Building2 size={20} />
-                {loadingGenerate ? 'Calculating...' : 'Generate Monthly Invoices'}
-            </button>
-        </section>
-
-        {/* Apply Penalties Widget */}
-        <section className="glass-panel p-8">
-            <h2 className="text-xl font-display font-semibold flex items-center gap-2 mb-2">
-                <AlertTriangle className="text-warning" size={24} /> Overdue Audits
-            </h2>
-            <p className="text-sm text-textSecondary mb-8 leading-relaxed">
-                Scan database to transition expired pending payments to OVERDUE and apply a ₹50/day late fee surcharge (after 5-day grace).
-            </p>
-            <button 
-                onClick={handleApplyPenalties} 
-                disabled={loadingPenalties}
-                className="w-full bg-warning/20 hover:bg-warning/30 text-warning border border-warning/10 py-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 focus:ring-2 focus:ring-warning/50 focus:outline-none"
-            >
-                <Wallet size={20} />
-                {loadingPenalties ? 'Scanning Records...' : 'Execute Late Fee Penalties'}
-            </button>
-        </section>
-      </div>
-
-      {/* Recent Payments Table */}
-      <section className="glass-panel p-8">
-        <h2 className="text-xl font-display font-semibold flex items-center gap-2 mb-6">
-          <BarChart3 className="text-accentPrimary" size={24} /> Recent Payments ({stats.totalBills} total)
-        </h2>
-        {recentPayments.length === 0 ? (
-          <div className="text-center py-12 text-textSecondary bg-white/5 rounded-xl border border-white/5 border-dashed">
-            No payment records yet. Generate invoices to populate billing data.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2 text-[11px] uppercase tracking-wider text-textTertiary font-semibold">
-              <div className="col-span-3">Student</div>
-              <div className="col-span-2">Type</div>
-              <div className="col-span-2">Amount</div>
-              <div className="col-span-2">Due Date</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1">Receipt</div>
-            </div>
-            {recentPayments.map((pay: any) => (
-              <div key={pay.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-bgTertiary rounded-xl px-4 py-3 border border-white/5 items-center text-sm">
-                <div className="col-span-3 text-white font-medium">{pay.student?.user?.name || '—'}</div>
-                <div className="col-span-2 text-textSecondary">{pay.type?.replace('_', ' ')}</div>
-                <div className="col-span-2 font-medium">₹{Number(pay.totalAmount || pay.amount).toLocaleString()}</div>
-                <div className="col-span-2 text-textSecondary text-xs">{new Date(pay.dueDate).toLocaleDateString()}</div>
-                <div className="col-span-2">
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase ${
-                    pay.status === 'PAID' ? 'bg-success/20 text-success' : 
-                    pay.status === 'OVERDUE' ? 'bg-error/20 text-error' : 'bg-warning/20 text-warning'
-                  }`}>{pay.status}</span>
+      {activeView === 'invoices' && (
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="border border-white/10 bg-[#10110f]/[0.82] p-5 sm:p-6">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-3 border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <Calculator className="text-[#d8ff65]" size={19} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.5]">invoice engine</span>
                 </div>
-                <div className="col-span-1 text-textTertiary text-xs">{pay.receiptNumber || '—'}</div>
+                <h3 className="font-display text-4xl font-black uppercase sm:text-5xl">Generate Bills</h3>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/[0.55]">
+                  Run monthly room and mess billing for all active residents from one focused finance action.
+                </p>
               </div>
-            ))}
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/[0.45]">total billed</p>
+                <p className="font-display text-4xl font-black text-[#d8ff65]">{money(stats.totalRevenue)}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="border border-white/10 bg-white/[0.03] p-5">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/[0.45]">billing action</p>
+                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/[0.58]">
+                  Generate the current month’s regular room fees and dynamic mess deductions for every active allocation.
+                </p>
+                <button onClick={handleGenerateBills} disabled={loadingGenerate} className="btn-primary mt-8 w-full py-3 text-xs">
+                  <Building2 size={15} /> {loadingGenerate ? 'Generating...' : 'Generate Monthly Invoices'}
+                </button>
+              </div>
+              <div className="grid gap-4">
+                <InfoCell label="Collected" value={money(stats.collected)} />
+                <InfoCell label="Pending" value={money(stats.pending)} />
+              </div>
+            </div>
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
+      {activeView === 'penalties' && (
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="border border-white/10 bg-[#10110f]/[0.82] p-5 sm:p-6">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-3 border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <AlertTriangle className="text-[#f7c948]" size={19} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.5]">penalty audits</span>
+                </div>
+                <h3 className="font-display text-4xl font-black uppercase sm:text-5xl">Late Fee Sweep</h3>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/[0.55]">
+                  Transition overdue payments and apply late fee surcharges after the grace period.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/[0.45]">overdue total</p>
+                <p className="font-display text-4xl font-black text-[#f7c948]">{money(stats.overdue)}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="border border-white/10 bg-white/[0.03] p-5">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/[0.45]">penalty action</p>
+                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/[0.58]">
+                  Scan all pending payments, move expired ones to `OVERDUE`, and apply daily late charges where needed.
+                </p>
+                <button onClick={handleApplyPenalties} disabled={loadingPenalties} className="btn-primary mt-8 w-full py-3 text-xs">
+                  <Wallet size={15} /> {loadingPenalties ? 'Scanning...' : 'Apply Late Penalties'}
+                </button>
+              </div>
+              <div className="grid gap-4">
+                <InfoCell label="Total Bills" value={stats.totalBills.toString().padStart(2, '0')} />
+                <InfoCell label="Overdue Count" value={recentPayments.filter((payment) => payment.status === 'OVERDUE').length.toString().padStart(2, '0')} />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeView === 'payments' && (
+        <section className="border border-white/10 bg-[#10110f]/[0.82] p-5 sm:p-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-3 border border-white/10 bg-white/[0.03] px-4 py-3">
+                <CreditCard className="text-[#66e3ff]" size={19} />
+                <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.5]">payment records</span>
+              </div>
+              <h3 className="font-display text-4xl font-black uppercase sm:text-5xl">Payment Ledger</h3>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/[0.55]">
+                Review collected, pending, and overdue billing records across the hostel payment system.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <InfoCell label="Collected" value={money(stats.collected)} />
+              <InfoCell label="Pending" value={money(stats.pending)} />
+              <InfoCell label="Overdue" value={money(stats.overdue)} />
+            </div>
+          </div>
+
+          {recentPayments.length === 0 ? (
+            <EmptyState label="No payment records yet. Generate invoices to populate the ledger." />
+          ) : (
+            <div className="space-y-3">
+              {recentPayments.map((payment) => (
+                <div key={payment.id} className="grid gap-4 border border-white/10 bg-white/[0.03] p-4 lg:grid-cols-[1.05fr_.8fr_.75fr_.65fr_.55fr] lg:items-center">
+                  <div>
+                    <p className="font-display text-2xl font-black">{payment.student?.user?.name || 'Unknown Resident'}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/[0.45]">{payment.type?.replace('_', ' ') || 'Unknown type'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">amount</p>
+                    <p className="mt-2 font-display text-2xl font-black">{money(Number(payment.totalAmount || payment.amount || 0))}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">due date</p>
+                    <p className="mt-2 font-semibold">{new Date(payment.dueDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">status</p>
+                    <span className={`mt-2 inline-flex px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${
+                      payment.status === 'PAID'
+                        ? 'bg-[#53d18a]/15 text-[#53d18a]'
+                        : payment.status === 'OVERDUE'
+                          ? 'bg-rose-400/15 text-rose-300'
+                          : 'bg-[#f7c948]/15 text-[#f7c948]'
+                    }`}>
+                      {payment.status}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/[0.4]">receipt</p>
+                    <p className="mt-2 text-sm text-white/[0.58]">{payment.receiptNumber || '—'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 };
+
+const EmptyState = ({ label }: { label: string }) => (
+  <div className="grid min-h-36 place-items-center border border-dashed border-white/10 bg-white/[0.025] p-6 text-center text-sm text-white/[0.48]">
+    {label}
+  </div>
+);
+
+const InfoCell = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="border border-white/10 bg-black/20 p-4">
+    <p className="text-[10px] uppercase tracking-[0.22em] text-white/[0.4]">{label}</p>
+    <p className="mt-3 font-display text-2xl font-black">{value}</p>
+  </div>
+);
