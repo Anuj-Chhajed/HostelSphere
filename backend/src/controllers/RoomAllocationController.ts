@@ -42,7 +42,7 @@ export class RoomAllocationController {
   public updateAllocationStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
-      const { status, remarks } = req.body;
+      const { status, remarks, roomId } = req.body;
       const userId = req.user?.userId;
       
       if (!userId) throw new AppError('Not authenticated', 401);
@@ -55,7 +55,7 @@ export class RoomAllocationController {
 
       let result;
       if (status === 'APPROVED') {
-        result = await this.allocationService.approveAllocation(id as string, warden.id);
+        result = await this.allocationService.approveAllocation(id as string, warden.id, roomId);
       } else if (status === 'REJECTED') {
         result = await this.allocationService.rejectAllocation(id as string, warden.id, remarks || 'Rejected by Warden');
       } else {
@@ -80,6 +80,21 @@ export class RoomAllocationController {
       res.status(200).json({
         success: true,
         message: 'Room marked as occupied successfully',
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public vacateRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const result = await this.allocationService.vacateRoom(id as string);
+
+      res.status(200).json({
+        success: true,
+        message: 'Resident successfully vacated from the room',
         data: result
       });
     } catch (error) {

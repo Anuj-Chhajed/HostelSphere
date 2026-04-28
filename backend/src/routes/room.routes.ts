@@ -16,4 +16,7 @@ router.post('/rooms', authorizeRoles(UserRole.ADMIN), roomController.createRoom)
 router.get('/blocks', roomController.getBlocks);
 router.get('/rooms', roomController.getRooms);
 
+router.delete('/blocks/:id', authorizeRoles(UserRole.ADMIN), roomController.deleteBlock);
+router.delete('/rooms/:id', authorizeRoles(UserRole.ADMIN), roomController.deleteRoom);
+
 export default router;

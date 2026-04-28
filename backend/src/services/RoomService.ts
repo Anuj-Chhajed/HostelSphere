@@ -53,4 +53,25 @@ export class RoomService {
         orderBy: [{ blockId: 'asc' }, { floor: 'asc' }, { roomNumber: 'asc' }]
       });
   }
+
+  public async deleteBlock(blockId: string): Promise<any> {
+    return this.prisma.block.delete({
+      where: { id: blockId }
+    });
+  }
+
+  public async deleteRoom(roomId: string): Promise<any> {
+    return this.prisma.$transaction(async (tx) => {
+        const room = await tx.room.delete({
+            where: { id: roomId }
+        });
+        
+        await tx.block.update({
+            where: { id: room.blockId },
+            data: { totalRooms: { decrement: 1 } }
+        });
+
+        return room;
+    });
+  }
 }

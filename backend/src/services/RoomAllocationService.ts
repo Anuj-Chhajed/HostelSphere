@@ -157,6 +157,42 @@ export class RoomAllocationService {
     });
   }
 
+  public async vacateRoom(allocationId: string): Promise<any> {
+    const allocation = await this.prisma.roomAllocation.findUnique({
+      where: { id: allocationId }
+    });
+
+    if (!allocation) throw new AppError('Allocation not found', 404);
+    if (!allocation.roomId) throw new AppError('Cannot vacate a request without assigned room ID', 400);
+
+    const context = new RoomAllocationContext(allocation);
+    context.vacate(); // Transition to VACATED state
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedAllocation = await tx.roomAllocation.update({
+        where: { id: allocationId },
+        data: {
+          status: context.getStatus(),
+          vacatedDate: new Date()
+        }
+      });
+
+      const room = await tx.room.findUnique({ where: { id: allocation.roomId! } });
+      if (room) {
+        const newOccupancy = Math.max(0, room.currentOccupancy - 1);
+        await tx.room.update({
+          where: { id: room.id },
+          data: {
+            currentOccupancy: newOccupancy,
+            status: newOccupancy === 0 ? RoomStatus.AVAILABLE : RoomStatus.OCCUPIED
+          }
+        });
+      }
+
+      return updatedAllocation;
+    });
+  }
+
   public async withdrawAllocation(allocationId: string, studentUserId: string): Promise<void> {
     const allocation = await this.prisma.roomAllocation.findUnique({
       where: { id: allocationId },

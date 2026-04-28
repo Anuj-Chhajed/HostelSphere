@@ -21,6 +21,9 @@ router.post('/:id/status', authorizeRoles(UserRole.WARDEN, UserRole.ADMIN), allo
 // Typically students confirm they occupied it, or a warden confirms it
 router.post('/:id/occupy', authorizeRoles(UserRole.STUDENT, UserRole.WARDEN), allocationController.occupyRoom);
 
+// Unallocate / vacate
+router.post('/:id/vacate', authorizeRoles(UserRole.ADMIN, UserRole.WARDEN), allocationController.vacateRoom);
+
 // Delete route to withdraw allocation
 router.delete('/:id', authorizeRoles(UserRole.STUDENT), allocationController.withdrawAllocation);
 
